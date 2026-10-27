@@ -1,0 +1,3476 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>НАТЯЖЕНИЕ — FEIS Game Jam 2026 (Roles Reversed)</title>
+  <style>
+    :root {
+      --bg-deep: #070e17;
+      --bg-panel: rgba(11, 20, 34, 0.86);
+      --border-subtle: rgba(148, 184, 218, 0.24);
+      --text-main: #ecf3f9;
+      --text-muted: #93acc4;
+      --accent-ice: #4fd1ff;
+      --accent-gold: #ffd54a;
+      --accent-warn: #ffaa33;
+      --accent-danger: #ff3e55;
+      --accent-safe: #3ddc97;
+      --accent-purple: #c68aff;
+      --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-deep);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+    }
+
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    /* ВЕРХНИЙ HUD */
+    .hud-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 18px;
+      z-index: 10;
+    }
+
+    .hud-top {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 14px;
+      align-items: start;
+      max-width: 1220px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .hud-card {
+      background: var(--bg-panel);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+    }
+
+    .hud-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+      gap: 8px;
+    }
+
+    .hud-value {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--text-main);
+      font-weight: 800;
+    }
+
+    .bar-track {
+      position: relative;
+      width: 100%;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      transition: width 0.08s linear, background-color 0.2s ease;
+    }
+
+    #grip-bar {
+      background: linear-gradient(90deg, #ff3e55, #ffaa33, #4fd1ff);
+    }
+
+    #rope-hp-bar {
+      background: linear-gradient(90deg, #ff3e55, #e8b86d, #3ddc97);
+    }
+
+    .hud-subtext {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ЦЕНТРАЛЬНЫЙ ИНДИКАТОР ВЫСОТЫ, СОСТОЯНИЯ И АУРЫ */
+    .hud-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .altitude-pill {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .phase-badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--accent-ice);
+      font-weight: 800;
+    }
+
+    .altitude-num {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .state-banner {
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(15, 28, 44, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      transition: all 0.15s ease;
+      text-align: center;
+      min-width: 240px;
+    }
+
+    .state-banner.vulnerable {
+      background: rgba(255, 62, 85, 0.25);
+      border-color: var(--accent-danger);
+      color: #ff9aa6;
+      box-shadow: 0 0 18px rgba(255, 62, 85, 0.45);
+      transform: scale(1.04);
+    }
+
+    .state-banner.telegraph {
+      background: rgba(255, 170, 51, 0.2);
+      border-color: var(--accent-warn);
+      color: #ffd089;
+    }
+
+    .state-banner.braced {
+      background: rgba(79, 209, 255, 0.16);
+      border-color: var(--accent-ice);
+      color: #a9e9ff;
+    }
+
+    .state-banner.bluff {
+      background: rgba(198, 138, 255, 0.24);
+      border-color: var(--accent-purple);
+      color: #e6c8ff;
+      box-shadow: 0 0 16px rgba(198, 138, 255, 0.4);
+    }
+
+    /* Полоса и кнопка УЛЬТЫ АУРЫ */
+    .aura-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(14, 24, 40, 0.9);
+      border: 1px solid rgba(255, 213, 74, 0.35);
+      border-radius: 999px;
+      padding: 4px 6px 4px 12px;
+      pointer-events: auto;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .aura-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--accent-gold);
+      letter-spacing: 0.05em;
+    }
+
+    .aura-mini-track {
+      width: 68px;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .aura-mini-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ffaa33, #ffd54a, #fff3a1);
+      transition: width 0.12s ease;
+    }
+
+    .aura-ult-btn {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 213, 74, 0.3);
+      background: rgba(255, 213, 74, 0.1);
+      color: #93acc4;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: not-allowed;
+      transition: all 0.15s ease;
+    }
+
+    .aura-ult-btn.ready {
+      background: linear-gradient(135deg, #ffd54a, #ff9900);
+      color: #08111c;
+      border-color: #fff;
+      cursor: pointer;
+      box-shadow: 0 0 16px rgba(255, 213, 74, 0.75);
+      animation: pulseUlt 1.1s infinite alternate;
+    }
+
+    @keyframes pulseUlt {
+      from { transform: scale(1); }
+      to { transform: scale(1.06); }
+    }
+
+    /* ПРАВЫЙ ВЕРХНИЙ БЛОК + КНОПКИ */
+    .hud-right-wrap {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .hud-right-wrap .hud-card {
+      flex: 1;
+    }
+
+    .top-QuickButtons {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: auto;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-panel);
+      color: var(--text-main);
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(38, 64, 96, 0.9);
+      border-color: var(--accent-ice);
+    }
+
+    .icon-btn:active {
+      transform: scale(0.94);
+    }
+
+    /* ПЛАШКА СОБЫТИЙ ПО ЦЕНТРУ ЭКРАНА */
+    #event-banner {
+      position: absolute;
+      left: 50%;
+      top: 126px;
+      transform: translateX(-50%);
+      z-index: 12;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font: 800 13.5px system-ui, sans-serif;
+      text-align: center;
+      max-width: min(92vw, 560px);
+      pointer-events: none;
+      background: rgba(8, 16, 28, 0.92);
+      border: 1.5px solid #7fe3ff;
+      color: #7fe3ff;
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    /* НИЖНИЙ HUD: ШКАЛА НАТЯЖЕНИЯ И СЕНСОРНЫЕ КНОПКИ */
+    .hud-bottom {
+      max-width: 880px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tutorial-toast {
+      background: rgba(10, 22, 36, 0.94);
+      border: 1px solid var(--accent-ice);
+      border-radius: 10px;
+      padding: 9px 15px;
+      font-size: 13.5px;
+      line-height: 1.4;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+      pointer-events: auto;
+      max-width: 700px;
+    }
+
+    .tutorial-toast.hidden {
+      display: none;
+    }
+
+    .tutorial-step-badge {
+      background: var(--accent-ice);
+      color: #05101a;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tutorial-skip {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .tutorial-skip:hover {
+      color: #fff;
+      border-color: #fff;
+    }
+
+    .tension-panel {
+      width: 100%;
+      background: var(--bg-panel);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 10px 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    }
+
+    .tension-meter-outer {
+      position: relative;
+      height: 17px;
+      background: rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    /* Разметка зон натяжения: рабочая жёлтая (45-85%) и узкий золотой пик (70-81%) */
+    .tension-zone-sweet {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 45%;
+      width: 40%;
+      background: rgba(255, 170, 51, 0.15);
+      border-left: 1px dashed rgba(255, 170, 51, 0.65);
+      border-right: 1px dashed rgba(255, 62, 85, 0.75);
+      pointer-events: none;
+    }
+
+    .tension-zone-gold {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 70%;
+      width: 11%;
+      background: rgba(255, 213, 74, 0.30);
+      border-left: 1.5px solid rgba(255, 213, 74, 0.95);
+      border-right: 1.5px solid rgba(255, 213, 74, 0.95);
+      pointer-events: none;
+    }
+
+    .tension-zone-crit {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 85%;
+      width: 15%;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 62, 85, 0.24),
+        rgba(255, 62, 85, 0.24) 6px,
+        rgba(255, 62, 85, 0.05) 6px,
+        rgba(255, 62, 85, 0.05) 12px
+      );
+      pointer-events: none;
+    }
+
+    #tension-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #4fd1ff 0%, #ffaa33 55%, #ffd54a 75%, #ff3e55 100%);
+      border-radius: 7px;
+      transition: width 0.03s linear;
+    }
+
+    .controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .key-hints {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .kbd {
+      display: inline-block;
+      padding: 1px 6px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+      margin-right: 3px;
+    }
+
+    /* Сенсорные / экранные кнопки управления */
+    .touch-controls {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .action-btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(25, 44, 68, 0.9);
+      color: #fff;
+      font-weight: 700;
+      font-size: 12.5px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      text-transform: uppercase;
+    }
+
+    .action-btn.primary-hold {
+      border-color: var(--accent-warn);
+      background: rgba(255, 170, 51, 0.18);
+      color: #ffd494;
+    }
+
+    .action-btn.primary-hold.active {
+      background: var(--accent-warn);
+      color: #08111c;
+      box-shadow: 0 0 16px rgba(255, 170, 51, 0.6);
+    }
+
+    .action-btn.snap-trigger {
+      border-color: var(--accent-danger);
+      background: rgba(255, 62, 85, 0.22);
+      color: #ffb0b9;
+    }
+
+    .action-btn.snap-trigger:active {
+      background: var(--accent-danger);
+      color: #fff;
+    }
+
+    /* МОДАЛЬНЫЕ ЭКРАНЫ (МЕНЮ, ПЕРЕХОД УРОВНЯ, ПАУЗА, ФИНАЛ) */
+    .overlay-screen {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(11, 22, 36, 0.80) 0%, rgba(5, 10, 18, 0.95) 100%);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      opacity: 1;
+      transition: opacity 0.25s ease;
+    }
+
+    .overlay-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .modal-card {
+      max-width: 680px;
+      width: 100%;
+      background: rgba(12, 23, 38, 0.96);
+      border: 1px solid rgba(148, 184, 218, 0.28);
+      border-radius: 16px;
+      padding: 24px 28px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+      text-align: center;
+    }
+
+    .jam-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent-ice);
+      background: rgba(79, 209, 255, 0.12);
+      border: 1px solid rgba(79, 209, 255, 0.3);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+
+    .game-title {
+      font-size: clamp(28px, 5.5vw, 44px);
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 6px;
+      text-shadow: 0 4px 24px rgba(79, 209, 255, 0.25);
+    }
+
+    .game-subtitle {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin-bottom: 16px;
+    }
+
+    .lore-quote {
+      font-style: italic;
+      font-size: 12.5px;
+      color: #bdd3e8;
+      background: rgba(255, 255, 255, 0.04);
+      border-left: 3px solid var(--accent-danger);
+      padding: 9px 14px;
+      border-radius: 0 8px 8px 0;
+      text-align: left;
+      margin-bottom: 16px;
+    }
+
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .rule-item {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .rule-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .rule-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    /* Карточки выбора мем-перка между уровнями (3 штуки в ряд) */
+    .perk-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 14px 0 6px;
+      text-align: left;
+    }
+
+    .perk-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1.5px solid rgba(79, 209, 255, 0.3);
+      border-radius: 12px;
+      padding: 13px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
+    }
+
+    .perk-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent-gold);
+      background: rgba(255, 213, 74, 0.09);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .perk-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: var(--accent-gold);
+      margin-bottom: 6px;
+      line-height: 1.25;
+    }
+
+    .perk-meme {
+      font-size: 11.5px;
+      font-style: italic;
+      color: #b7cde3;
+      line-height: 1.35;
+      margin-bottom: 10px;
+    }
+
+    .perk-stat {
+      font-size: 11.5px;
+      color: #fff;
+      background: rgba(79, 209, 255, 0.12);
+      border-left: 2.5px solid var(--accent-ice);
+      padding: 6px 8px;
+      border-radius: 0 6px 6px 0;
+      line-height: 1.3;
+    }
+
+    .stats-summary {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 16px 0 20px;
+      text-align: left;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+
+    .stat-box-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .stat-box-val {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-main {
+      padding: 12px 26px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #ff4b60, #d9263e);
+      color: #fff;
+      font-size: 14.5px;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(255, 62, 85, 0.4);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+
+    .btn-main:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(255, 62, 85, 0.55);
+    }
+
+    .btn-main:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text-main);
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .best-record-bar {
+      margin-top: 14px;
+      padding-top: 11px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 12px 0;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+    }
+
+    .settings-row label {
+      font-size: 14px;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .settings-row input[type="range"] {
+      width: 150px;
+      accent-color: var(--accent-ice);
+      cursor: pointer;
+    }
+
+    @media (max-width: 780px) {
+      .hud-top {
+        grid-template-columns: 1fr 1fr;
+      }
+      .hud-center {
+        grid-column: 1 / -1;
+        order: -1;
+      }
+      .rules-grid, .perk-grid {
+        grid-template-columns: 1fr;
+      }
+      .key-hints {
+        display: none;
+      }
+      .touch-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .action-btn {
+        flex: 1;
+        padding: 11px 8px;
+        text-align: center;
+      }
+    }
+    .aura-pill { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+    <div id="event-banner"></div>
+
+    <!-- ИГРОВОЙ ИНТЕРФЕЙС (HUD) -->
+    <div class="hud-layer">
+      <div class="hud-top">
+        <!-- Левая карточка: Хват и равновесие альпиниста -->
+        <div class="hud-card">
+          <div class="hud-label-row">
+            <span id="boss-name-label">I. Турист-разрядник</span>
+            <span class="hud-value" id="grip-text">100%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" id="grip-bar" style="width: 100%;"></div>
+          </div>
+          <div class="hud-subtext">
+            <span id="climber-mood">Уверенный подъём</span>
+            <span id="combo-text">Серия: 0</span>
+          </div>
+        </div>
+
+        <!-- Центральный блок: Высота, состояние и Ульта Ауры -->
+        <div class="hud-center">
+          <div class="altitude-pill">
+            <span class="phase-badge" id="phase-name">Ур. 1/3 · Карниз</span>
+            <span class="altitude-num" id="altitude-text">12 / 100 м</span>
+          </div>
+          <div class="state-banner" id="state-banner">ПОДЪЁМ ПО СКЛОНУ</div>
+          <div class="aura-pill" title="Копится за точные перехваты и выдержку. На 100% нажмите Q, чтобы сбить спесь с босса и открыть окно перехвата!">
+            <div class="aura-info">
+              <span>✨ АУРА: <strong id="aura-score-text">0</strong></span>
+              <div class="aura-mini-track">
+                <div class="aura-mini-fill" id="aura-charge-bar"></div>
+              </div>
+            </div>
+            <button class="aura-ult-btn" id="btn-aura-ult">⚡ Лавина [Q]</button>
+          </div>
+        </div>
+
+        <!-- Правая карточка: Прочность каната и кнопки -->
+        <div class="hud-right-wrap">
+          <div class="hud-card">
+            <div class="hud-label-row">
+              <span>Целостность волокон</span>
+              <span class="hud-value" id="rope-hp-text">100%</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" id="rope-hp-bar" style="width: 100%;"></div>
+            </div>
+            <div class="hud-subtext">
+              <span id="rope-status-text">Оплётка в норме</span>
+              <span id="accuracy-text">Точность: —</span>
+            </div>
+          </div>
+
+          <div class="top-QuickButtons">
+            <button class="icon-btn" id="btn-mute" title="Звук (M)" aria-label="Переключить звук">🔊</button>
+            <button class="icon-btn" id="btn-pause" title="Пауза (P / Esc)" aria-label="Пауза">⏸</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Нижний блок: Обучение и шкала натяжения -->
+      <div class="hud-bottom">
+        <div class="tutorial-toast" id="tutorial-toast">
+          <span class="tutorial-step-badge" id="tut-badge">Обучение 1/3</span>
+          <span id="tut-text">Зажмите <b>ПРОБЕЛ</b> (или кнопку «Натягивать»), чтобы набрать натяжение в жёлтую зону (45–85%).</span>
+          <button class="tutorial-skip" id="btn-skip-tut">Скрыть</button>
+        </div>
+
+        <div class="tension-panel">
+          <div class="hud-label-row">
+            <span>Натяжение каната <small style="color:#93acc4; font-weight:400;">золото — самый сильный рывок</small></span>
+            <span class="hud-value" id="tension-text">0%</span>
+          </div>
+          <div class="tension-meter-outer" id="tension-meter-outer">
+            <div class="tension-zone-sweet" id="zone-sweet" title="Оптимальная зона для рывка (45-85%)"></div>
+            <div class="tension-zone-gold" id="zone-gold" title="Золотой импульс (70-81%): повышенный урон и +1% к прочности каната!"></div>
+            <div class="tension-zone-crit" title="Опасное трение о скалу (>85%)"></div>
+            <div id="tension-bar"></div>
+          </div>
+
+          <div class="controls-row">
+            <div class="key-hints">
+              <span><kbd class="kbd">ПРОБЕЛ</kbd> / <kbd class="kbd">ЛКМ</kbd> Тянуть</span>
+              <span><kbd class="kbd">ОТПУСТИТЬ</kbd> Рывок</span>
+              <span><kbd class="kbd">S</kbd> / <kbd class="kbd">↓</kbd> Стравить</span>
+              
+              <span><kbd class="kbd">R</kbd> Рестарт</span>
+            </div>
+
+            <div class="touch-controls">
+              <button class="action-btn primary-hold" id="btn-hold-tension">Натягивать</button>
+              <button class="action-btn snap-trigger" id="btn-snap-now">Рывок!</button>
+              <button class="action-btn" id="btn-bleed-tension">Ослабить (S)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ЭКРАН СТАРТА -->
+    <div class="overlay-screen" id="start-screen">
+      <div class="modal-card">
+        <span class="jam-tag">FEIS Game Jam 2026 · Roles Reversed</span>
+        <h1 class="game-title">НАТЯЖЕНИЕ</h1>
+        <p class="game-subtitle">Вы — страховочный канат на отвесной ледяной стене.<br>Трое самоуверенных восходителей решили покорить пик. Сбросьте каждого!</p>
+
+        <div class="lore-quote">
+          «Годами меня вбивали в карабины и тёрли о гранит ради чужих рекордов. Сегодня роли поменялись местами: один расчётливый рывок в момент перехвата — и гора останется свободной».
+        </div>
+
+        <div class="rules-grid">
+          <div class="rule-item">
+            <div class="rule-title"><span style="color:var(--accent-warn)">1.</span> Копите импульс</div>
+            <div class="rule-desc">Зажмите <b>Пробел / ЛКМ</b> (45–85%). Попадание в <b>узкий золотой пик (70–81%)</b> бьёт сильнее и слегка подтягивает волокна!</div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-title"><span style="color:var(--accent-danger)">2.</span> Бейте в перехват</div>
+            <div class="rule-desc">Ждите, пока альпинист оторвёт руку от скалы (<b>«⚡ ПЕРЕХВАТ!»</b>), и резко отпускайте натяжение.</div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-title"><span style="color:var(--accent-ice)">3.</span> Контроль и стравливание</div>
+            <div class="rule-desc">Не бейте в ледоруб (<b>«УПОР»</b>) и не ведитесь на блеф. <b>S</b> ослабляет канат, а натяжение выше 60% его изнашивает.</div>
+          </div>
+          <div class="rule-item">
+            <div class="rule-title"><span style="color:var(--accent-gold)">4.</span> Три босса и перки</div>
+            <div class="rule-desc">Каждый босс быстрее и хитрее прежнего. Между боссами выбирайте перк.</div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-main" id="btn-start-game">Начать восхождение</button>
+        </div>
+
+        <div class="best-record-bar">
+          <span id="best-record-label">Лучший результат: ещё нет побед</span>
+          <span>Чекпоинты на каждом боссе</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ЭКРАН МЕЖДУ УРОВНЯМИ (ВЫБОР МЕМ-ПЕРКА И АНОНС СЛЕДУЮЩЕГО БОССА) -->
+    <div class="overlay-screen hidden" id="level-screen">
+      <div class="modal-card">
+        <span class="jam-tag" id="inter-badge">Противник повержен!</span>
+        <h2 class="game-title" id="inter-title" style="font-size: 28px;">УРОВЕНЬ 1 ПРОЙДЕН</h2>
+        <p class="game-subtitle" id="inter-desc" style="margin-bottom: 10px;">
+          Следующий на очереди — <b>Стример «Фармер Ауры»</b>.
+        </p>
+
+        <div class="lore-quote" id="inter-quote" style="margin-bottom: 12px;">
+          «Выберите один из трёх баффов для своих волокон перед следующим боссом:»
+        </div>
+
+        <div class="perk-grid" id="perk-grid-container"></div>
+      </div>
+    </div>
+
+    <!-- ЭКРАН ПАУЗЫ -->
+    <div class="overlay-screen hidden" id="pause-screen">
+      <div class="modal-card">
+        <span class="jam-tag">Передышка на склоне</span>
+        <h2 class="game-title" style="font-size: 32px;">ПАУЗА</h2>
+        <p class="game-subtitle">Ветер затих, но натяжение никуда не исчезло.</p>
+
+        <div class="settings-row">
+          <label for="volume-slider">Громкость звука</label>
+          <input type="range" id="volume-slider" min="0" max="100" value="75" />
+        </div>
+
+        <div class="settings-row">
+          <label>Обучающие подсказки</label>
+          <button class="btn-secondary" id="btn-toggle-tut" style="padding: 6px 14px; font-size: 12px;">Показать снова</button>
+        </div>
+
+        <div class="btn-row" style="margin-top: 22px;">
+          <button class="btn-main" id="btn-resume">Продолжить</button>
+          <button class="btn-secondary" id="btn-restart-pause">Этот уровень заново (R)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ЭКРАН ЗАВЕРШЕНИЯ (ПОБЕДА ИЛИ ПОРАЖЕНИЕ) -->
+    <div class="overlay-screen hidden" id="gameover-screen">
+      <div class="modal-card">
+        <span class="jam-tag" id="end-badge">Итог противостояния</span>
+        <h2 class="game-title" id="end-title" style="font-size: 32px;">СКАЛА СВОБОДНА</h2>
+        <p class="game-subtitle" id="end-reason">Вы дождались идеального момента перехвата и сорвали всех троих восходителей.</p>
+
+        <div class="lore-quote" id="end-quote">
+          «Последний карабин звякнул о камень. Натяжение сменилось долгожданным покоем».
+        </div>
+
+        <div class="stats-summary">
+          <div class="stat-box">
+            <div class="stat-box-label">Этап / Высота</div>
+            <div class="stat-box-val" id="stat-altitude">Ур. 3 · 48 м</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-label">Точные попадания</div>
+            <div class="stat-box-val" id="stat-accuracy">85% (6/7)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-label">Итоговая Аура каната</div>
+            <div class="stat-box-val" id="stat-rope-hp" style="color: var(--accent-gold);">+4 500 ✨</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-box-label">Ранг мастерства</div>
+            <div class="stat-box-val" id="stat-rank" style="color: var(--accent-warn);">S · Хищный канат</div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-main" id="btn-retry-checkpoint">Реванш на этом уровне (R)</button>
+          <button class="btn-secondary" id="btn-retry-full">С 1-го уровня</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * «НАТЯЖЕНИЕ» (TENSION) — FEIS Game Jam 2026 (Тема: Roles Reversed)
+     * Полностью автономная HTML5-игра без внешних ассетов и библиотек.
+     */
+    (() => {
+      "use strict";
+
+      // =========================================================================
+      // 1. ПРОЦЕДУРНЫЙ АУДИО-ДВИЖОК (Web Audio API)
+      // =========================================================================
+      class SoundEngine {
+        constructor() {
+          this.ctx = null;
+          this.masterGain = null;
+          this.windGain = null;
+          this.windFilter = null;
+          this.muted = false;
+          this.volume = 0.75;
+          this.lastCreakTime = 0;
+        }
+
+        init() {
+          if (this.ctx) {
+            if (this.ctx.state === "suspended") this.ctx.resume();
+            return;
+          }
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+
+          this.ctx = new AudioCtx();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = this.muted ? 0 : this.volume;
+          this.masterGain.connect(this.ctx.destination);
+
+          this.startAmbientWind();
+        }
+
+        setVolume(val) {
+          this.volume = Math.max(0, Math.min(1, val));
+          if (this.masterGain && !this.muted) {
+            this.masterGain.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.04);
+          }
+        }
+
+        toggleMute() {
+          this.muted = !this.muted;
+          if (this.masterGain && this.ctx) {
+            this.masterGain.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.04);
+          }
+          return this.muted;
+        }
+
+        tone(f, t, d, type = "sine", v = 0.1, f2 = null) {
+          if (!this.ctx || this.muted) return;
+          const n = this.ctx.currentTime + t;
+          const o = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          o.type = type;
+          o.frequency.setValueAtTime(f, n);
+          if (f2) o.frequency.exponentialRampToValueAtTime(f2, n + d);
+          g.gain.setValueAtTime(0.001, n);
+          g.gain.linearRampToValueAtTime(v, n + 0.012);
+          g.gain.exponentialRampToValueAtTime(0.001, n + d);
+          o.connect(g);
+          g.connect(this.masterGain);
+          o.start(n);
+          o.stop(n + d + 0.02);
+        }
+
+        noise(d, f, q, v) {
+          if (!this.ctx || this.muted) return;
+          if (!this.noiseBuf) {
+            const n = this.ctx.sampleRate;
+            this.noiseBuf = this.ctx.createBuffer(1, n, n);
+            const a = this.noiseBuf.getChannelData(0);
+            for (let i = 0; i < n; i++) a[i] = Math.random() * 2 - 1;
+          }
+          const src = this.ctx.createBufferSource();
+          src.buffer = this.noiseBuf;
+          src.loop = true;
+          const fl = this.ctx.createBiquadFilter();
+          fl.type = "bandpass";
+          fl.frequency.value = f;
+          fl.Q.value = q;
+          const g = this.ctx.createGain();
+          const t0 = this.ctx.currentTime;
+          g.gain.setValueAtTime(0.001, t0);
+          g.gain.linearRampToValueAtTime(v, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+          src.connect(fl); fl.connect(g); g.connect(this.masterGain);
+          src.start(t0); src.stop(t0 + d + 0.05);
+        }
+
+        startAmbientWind() {
+          if (!this.ctx) return;
+          const bufferSize = this.ctx.sampleRate * 3;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          let lastOut = 0.0;
+          for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            data[i] = (lastOut + 0.02 * white) / 1.02;
+            lastOut = data[i];
+            data[i] *= 1.8;
+          }
+
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+          noise.loop = true;
+
+          this.windFilter = this.ctx.createBiquadFilter();
+          this.windFilter.type = "bandpass";
+          this.windFilter.frequency.value = 280;
+          this.windFilter.Q.value = 2.2;
+
+          this.windGain = this.ctx.createGain();
+          this.windGain.gain.value = 0.11;
+
+          noise.connect(this.windFilter);
+          this.windFilter.connect(this.windGain);
+          this.windGain.connect(this.masterGain);
+          noise.start();
+        }
+
+        updateAmbient(altitude, tension, isPlaying) {
+          if (!this.ctx || !this.windFilter || !this.windGain) return;
+          const now = this.ctx.currentTime;
+          const altFactor = Math.min(1, altitude / 100);
+          const targetFreq = isPlaying ? 240 + altFactor * 360 + (tension / 100) * 160 : 180;
+          const targetGain = isPlaying ? 0.09 + altFactor * 0.13 : 0.04;
+          this.windFilter.frequency.setTargetAtTime(targetFreq, now, 0.2);
+          this.windGain.gain.setTargetAtTime(targetGain, now, 0.2);
+
+          if (isPlaying && tension > 22) {
+            const interval = Math.max(0.13, 0.42 - (tension / 100) * 0.26);
+            if (now - this.lastCreakTime > interval) {
+              this.playRopeCreak(tension);
+              this.lastCreakTime = now;
+            }
+          }
+        }
+
+        playRopeCreak(tension) {
+          this.noise(0.09, 500 + (tension / 100) * 900 + Math.random() * 200, 5, 0.05 + (tension / 100) * 0.06);
+        }
+
+        playTelegraphCue() {
+          this.tone(240, 0, 0.14, "sine", 0.08, 330);
+        }
+
+        playVulnerableHeartbeat() {
+          this.tone(115, 0, 0.11, "sine", 0.2, 44);
+          this.tone(92, 0.13, 0.12, "sine", 0.14, 40);
+        }
+
+        playSnap(quality, power) {
+          if (!this.ctx || this.muted) return;
+          const startFreq = quality === "gold" ? 220 : quality === "perfect" ? 185 : quality === "blocked" ? 115 : 140;
+          this.tone(startFreq, 0, 0.26, "sine", 0.3 * power, 34);
+          this.noise(0.12, 2400, 0.8, 0.16 * power);
+
+          if (quality === "gold") {
+            this.tone(587.33, 0, 0.16, "triangle", 0.18 * power, 880);
+            this.tone(880, 0.07, 0.22, "triangle", 0.16 * power, 1174.66);
+          } else if (quality === "perfect") {
+            this.tone(520, 0, 0.18, "triangle", 0.16 * power, 820);
+          } else if (quality === "blocked") {
+            this.tone(160, 0, 0.22, "triangle", 0.14 * power, 90);
+          } else {
+            this.tone(320, 0, 0.15, "triangle", 0.12 * power, 190);
+          }
+        }
+
+        playAvalanche() {
+          this.tone(140, 0, 0.55, "sawtooth", 0.22, 32);
+          this.tone(280, 0.05, 0.45, "triangle", 0.18, 55);
+          this.tone(523.25, 0.1, 0.35, "sine", 0.15, 880);
+        }
+
+        playChill(low) {
+          [196, 246.94, 293.66, 392].forEach((f, i) =>
+            this.tone(low ? f * 0.75 : f, i * 0.06, 0.65, "triangle", 0.08)
+          );
+        }
+
+        playBeepFail() {
+          this.noise(0.18, 180, 1.2, 0.22);
+          this.tone(120, 0, 0.22, "sine", 0.12, 55);
+        }
+
+        playBoo() {
+          this.tone(260, 0, 0.22, "triangle", 0.09, 390);
+          this.tone(390, 0.12, 0.22, "sine", 0.08, 180);
+        }
+
+        playNarr() {
+          [220, 261.63, 329.63, 293.66].forEach((f, i) =>
+            this.tone(f, i * 0.12, 0.28, "triangle", 0.055)
+          );
+        }
+
+        playEnding(isVictory) {
+          const notes = isVictory ? [220, 277.18, 329.63, 440] : [293.66, 261.63, 220, 174.61];
+          notes.forEach((freq, i) => {
+            this.tone(freq, i * 0.12, 0.5, "triangle", 0.15);
+          });
+        }
+      }
+
+      // =========================================================================
+      // 2. КОНФИГУРАЦИЯ 3 БОССОВ-АЛЬПИНИСТОВ И 6 МЕМНЫХ ПЕРКОВ
+      // =========================================================================
+      const BOSS_PROFILES = [
+        {
+          lvl: 1,
+          name: "I. Турист-разрядник",
+          zoneTitle: "Ледяной карниз",
+          spd: 1.08,
+          dmgMul: 0.94,
+          regen: 0.88, // Ощутимый реген хвата: ошибки затягивают бой
+          winScale: 1.0,
+          jacketColor: "#2b6cb0",
+          pantsColor: "#1f3247",
+          helmetColor: "#f6ad55",
+          packColor: "#b83b2b",
+          skyTop: "#091526",
+          skyMid: "#152b46",
+          skyBot: "#203f60",
+          introBark: "«Погода шепчет! Страховка ГОСТовская, сейчас быстро возьму пик!»",
+        },
+        {
+          lvl: 2,
+          name: "II. Стример «Фармер Ауры»",
+          zoneTitle: "Отвесная стена",
+          spd: 1.18,
+          dmgMul: 0.84,
+          regen: 1.25,
+          winScale: 0.90,
+          jacketColor: "#8b3dff",
+          pantsColor: "#251b3d",
+          helmetColor: "#ff4db8",
+          packColor: "#14b8a6",
+          skyTop: "#150b28",
+          skyMid: "#2c1646",
+          skyBot: "#4d2358",
+          introBark: "«Чат, не спим! За донат делаю перехват на одной брови!»",
+        },
+        {
+          lvl: 3,
+          name: "III. Гигачад-Мьюер",
+          zoneTitle: "Штормовой пик",
+          spd: 1.28,
+          dmgMul: 0.75,
+          regen: 1.62,
+          winScale: 0.82,
+          jacketColor: "#1e293b",
+          pantsColor: "#0f172a",
+          helmetColor: "#ffd54a",
+          packColor: "#475569",
+          skyTop: "#1a0910",
+          skyMid: "#36121e",
+          skyBot: "#521d28",
+          introBark: "«Шшш... Мой стрик мьюинга — 500 дней. Ты быстрее порвёшься, чем я разомкну челюсть».",
+        },
+      ];
+
+      // 6 мемных перков (по 3 на выбор после 1-го и 2-го босса)
+      const PERK_IZO = {
+        title: "🩹 Синяя изолента бати",
+        meme: "«Держит глушитель с 1994 года — удержит и канат».",
+        stat: "+35% каната, урон по волокнам ниже на 22%.",
+        apply: (g) => { g.ropeHp = Math.min(100, g.ropeHp + 35); g.kevlarStacks++; },
+      };
+      const PERK_WOLF = {
+        title: "🐺 Цитатник волка",
+        meme: "«Безумно можно быть первым».",
+        stat: "+15% каната, +18% к урону, шире золотая зона.",
+        apply: (g) => { g.ropeHp = Math.min(100, g.ropeHp + 15); g.whipStacks++; },
+      };
+      const PERK_SIGMA = {
+        title: "🗿 Смазка сигмы",
+        meme: "«Скользит молча, без лишних слов».",
+        stat: "+30% каната, износ от перегруза ниже на 35%.",
+        apply: (g) => { g.ropeHp = Math.min(100, g.ropeHp + 30); g.sigmaGrease = true; },
+      };
+      const PERK_PELMENI = {
+        title: "🥟 Бабушкины пельмени",
+        meme: "«Наваристый канат тянет вниз сильнее».",
+        stat: "+25% каната, каждое попадание сбрасывает на 2.5 м больше.",
+        apply: (g) => { g.ropeHp = Math.min(100, g.ropeHp + 25); g.pelmeniPerk = true; },
+      };
+      const MEME_PERK_TIERS = [
+        [PERK_IZO, PERK_WOLF, PERK_SIGMA],
+        [PERK_PELMENI, PERK_WOLF, PERK_IZO],
+      ];
+
+      const canvas = document.getElementById("game-canvas");
+      const ctx = canvas.getContext("2d");
+      const sound = new SoundEngine();
+
+      const ui = {
+        bossNameLabel: document.getElementById("boss-name-label"),
+        gripText: document.getElementById("grip-text"),
+        gripBar: document.getElementById("grip-bar"),
+        climberMood: document.getElementById("climber-mood"),
+        comboText: document.getElementById("combo-text"),
+        phaseName: document.getElementById("phase-name"),
+        altitudeText: document.getElementById("altitude-text"),
+        stateBanner: document.getElementById("state-banner"),
+        auraScoreText: document.getElementById("aura-score-text"),
+        auraChargeBar: document.getElementById("aura-charge-bar"),
+        btnAuraUlt: document.getElementById("btn-aura-ult"),
+        ropeHpText: document.getElementById("rope-hp-text"),
+        ropeHpBar: document.getElementById("rope-hp-bar"),
+        ropeStatusText: document.getElementById("rope-status-text"),
+        accuracyText: document.getElementById("accuracy-text"),
+        tensionText: document.getElementById("tension-text"),
+        tensionBar: document.getElementById("tension-bar"),
+        zoneGold: document.getElementById("zone-gold"),
+        eventBanner: document.getElementById("event-banner"),
+
+        tutorialToast: document.getElementById("tutorial-toast"),
+        tutBadge: document.getElementById("tut-badge"),
+        tutText: document.getElementById("tut-text"),
+        btnSkipTut: document.getElementById("btn-skip-tut"),
+
+        startScreen: document.getElementById("start-screen"),
+        levelScreen: document.getElementById("level-screen"),
+        pauseScreen: document.getElementById("pause-screen"),
+        gameoverScreen: document.getElementById("gameover-screen"),
+        bestRecordLabel: document.getElementById("best-record-label"),
+
+        interBadge: document.getElementById("inter-badge"),
+        interTitle: document.getElementById("inter-title"),
+        interDesc: document.getElementById("inter-desc"),
+        perkGridContainer: document.getElementById("perk-grid-container"),
+
+        endBadge: document.getElementById("end-badge"),
+        endTitle: document.getElementById("end-title"),
+        endReason: document.getElementById("end-reason"),
+        endQuote: document.getElementById("end-quote"),
+        statAltitude: document.getElementById("stat-altitude"),
+        statAccuracy: document.getElementById("stat-accuracy"),
+        statRopeHp: document.getElementById("stat-rope-hp"),
+        statRank: document.getElementById("stat-rank"),
+
+        btnStart: document.getElementById("btn-start-game"),
+        btnMute: document.getElementById("btn-mute"),
+        btnPause: document.getElementById("btn-pause"),
+        btnResume: document.getElementById("btn-resume"),
+        btnRestartPause: document.getElementById("btn-restart-pause"),
+        btnRetryCheckpoint: document.getElementById("btn-retry-checkpoint"),
+        btnRetryFull: document.getElementById("btn-retry-full"),
+        btnToggleTut: document.getElementById("btn-toggle-tut"),
+        volumeSlider: document.getElementById("volume-slider"),
+
+        btnHoldTension: document.getElementById("btn-hold-tension"),
+        btnSnapNow: document.getElementById("btn-snap-now"),
+        btnBleedTension: document.getElementById("btn-bleed-tension"),
+      };
+
+      const STORAGE_KEY = "feis2026_tension_save_v3";
+      let savedData = {
+        bestRank: null,
+        bestAura: 0,
+        tutorialDone: false,
+      };
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) savedData = { ...savedData, ...JSON.parse(raw) };
+      } catch (e) {}
+
+      function saveProgress() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(savedData));
+        } catch (e) {}
+      }
+
+      function updateBestRecordUI() {
+        if (savedData.bestRank) {
+          ui.bestRecordLabel.textContent = `Лучший ранг: ${savedData.bestRank} · Рекорд Ауры: +${savedData.bestAura.toLocaleString("ru")}`;
+        } else {
+          ui.bestRecordLabel.textContent = "Лучший результат: ещё нет побед";
+        }
+      }
+      updateBestRecordUI();
+      sound.muted = !!savedData.muted;
+      if (typeof savedData.volume === "number") sound.volume = savedData.volume;
+      ui.btnMute.textContent = sound.muted ? "🔇" : "🔊";
+      ui.volumeSlider.value = Math.round(sound.volume * 100);
+
+      // Геометрия холста и окружения
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      const cliffCracks = [];
+      const bgPeaks = [];
+      const snowParticles = [];
+      const debrisParticles = [];
+      const floatingPopups = [];
+
+      function initEnvironmentGeometry() {
+        cliffCracks.length = 0;
+        for (let i = 0; i < 28; i++) {
+          cliffCracks.push({
+            altOffset: i * 4.2,
+            indent: (Math.sin(i * 1.7) * 0.5 + 0.5) * 26 + 8,
+            ledgeWidth: 28 + (i % 4) * 18,
+            hasIce: i % 3 === 0,
+          });
+        }
+
+        bgPeaks.length = 0;
+        for (let layer = 0; layer < 3; layer++) {
+          const pts = [];
+          const steps = 9;
+          for (let i = 0; i <= steps; i++) {
+            pts.push({
+              nx: i / steps,
+              ny: 0.32 + layer * 0.14 + Math.sin(i * 2.1 + layer * 1.9) * 0.09,
+            });
+          }
+          bgPeaks.push(pts);
+        }
+
+        snowParticles.length = 0;
+        for (let i = 0; i < 95; i++) {
+          snowParticles.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            r: 1 + Math.random() * 2.6,
+            vx: -25 - Math.random() * 45,
+            vy: 35 + Math.random() * 65,
+            alpha: 0.25 + Math.random() * 0.55,
+          });
+        }
+      }
+
+      function resizeCanvas() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+      initEnvironmentGeometry();
+
+      // =========================================================================
+      // 3. СОСТОЯНИЕ ИГРЫ, МЕМ-ПЕРКИ И СОБЫТИЯ
+      // =========================================================================
+      const ROPE_NODES = 22;
+
+      const game = {
+        mode: "MENU", // MENU, PLAYING, LEVEL_TRANSITION, PAUSED, ENDING_ANIM, GAMEOVER
+        time: 0,
+        runTime: 0,
+        hitStop: 0,
+
+        // Параметры каната (Игрок)
+        tension: 0,
+        ropeHp: 100,
+        isHolding: false,
+        isBleeding: false,
+        whipWave: 0,
+        whipPhase: 0,
+        overheatFlash: 0,
+        ropeNodes: [],
+
+        // Активные мем-перки
+        kevlarStacks: 0,
+        whipStacks: 0,
+        cashbackPerk: false,
+        sigmaGrease: false,
+        counterMewPerk: false,
+        pelmeniPerk: false,
+
+        // Параметры альпиниста (Противник)
+        altitude: 12,
+        grip: 100,
+        climberState: "CLIMBING", // CLIMBING, BRACED, TELEGRAPH, BLUFF_WINDOW, VULNERABLE, STAGGERED, FALLING, SUMMITED
+        stateTimer: 2.0,
+        stateDuration: 2.0,
+        cycleCount: 0,
+        limbPhase: 0,
+        flipAngle: 0,
+        staggerOffset: 0,
+        fallVy: 0,
+        fallY: 0,
+        fallRot: 0,
+        barkText: "",
+        barkTimer: 0,
+
+        // Статистика и обучение
+        totalSnaps: 0,
+        perfectSnaps: 0,
+        combo: 0,
+        maxCombo: 0,
+        tutorialStep: savedData.tutorialDone ? 0 : 1,
+
+        // Камера и эффекты
+        shakeTime: 0,
+        shakePower: 0,
+        flashColor: null,
+        flashAlpha: 0,
+      };
+
+      const ev = {
+        lvl: 1,
+        auraScore: 0,
+        auraCharge: 0,   // 0..100% для активации Лавины (Q)
+        ultCooldown: 0,  // Кулдаун после использования Лавины
+        fromAvalanche: false, // Флаг: окно открыто лавиной (не даёт перезарядить лавину от самой себя)
+        gaze: 0,
+        gt: 0,
+        nextGaze: 10,
+        cleanGaze: true,
+        chillBonus: false,
+        kanevsky: false,
+        mew: 0,
+        mt: 0,
+        mp: 0,
+        nextMew: 8,
+        willBluff: false,
+        lock: 0,
+      };
+
+      function getBoss() {
+        return BOSS_PROFILES[Math.min(BOSS_PROFILES.length - 1, ev.lvl - 1)];
+      }
+
+      // Узкая и требовательная золотая зона (70–81%), расширяется перком Волка (АУФ)
+      function getGoldZoneBounds() {
+        const extra = game.whipStacks * 3;
+        return { min: Math.max(60, 70 - extra), max: Math.min(84, 81 + Math.floor(extra * 0.5)) };
+      }
+
+      function updateGoldZoneUI() {
+        const bounds = getGoldZoneBounds();
+        ui.zoneGold.style.left = `${bounds.min}%`;
+        ui.zoneGold.style.width = `${bounds.max - bounds.min}%`;
+      }
+
+      function showBanner(text, color = "#7fe3ff") {
+        ui.eventBanner.textContent = text;
+        ui.eventBanner.style.color = color;
+        ui.eventBanner.style.borderColor = color;
+        ui.eventBanner.style.opacity = "1";
+      }
+
+      function hideBanner() {
+        ui.eventBanner.style.opacity = "0";
+      }
+
+      function initRopeNodes() {
+        game.ropeNodes = [];
+        for (let i = 0; i < ROPE_NODES; i++) {
+          game.ropeNodes.push({ x: 0, y: 0, vx: 0, vy: 0 });
+        }
+      }
+      initRopeNodes();
+
+      function resetEventsForStage() {
+        ev.gaze = 0;
+        ev.gt = 0;
+        ev.nextGaze = Infinity; // событие отключено ради ясности механики
+        ev.cleanGaze = true;
+        ev.chillBonus = false;
+        ev.kanevsky = false;
+        ev.mew = 0;
+        ev.mt = 0;
+        ev.mp = 0;
+        ev.nextMew = Infinity; // событие отключено
+        ev.willBluff = false;
+        ev.lock = 0;
+        ev.ultCooldown = 0;
+        ev.fromAvalanche = false;
+        hideBanner();
+      }
+
+      let stageSnap = null;
+      function startStage(levelNum, isFullReset = true, isRestart = false) {
+        if (isFullReset) {
+          ev.lvl = 1;
+          ev.auraScore = 0;
+          ev.auraCharge = 0; // Честный старт с 0% заряда Лавины
+          game.kevlarStacks = 0;
+          game.whipStacks = 0;
+          game.cashbackPerk = false;
+          game.sigmaGrease = false;
+          game.counterMewPerk = false;
+          game.pelmeniPerk = false;
+          game.totalSnaps = 0;
+          game.perfectSnaps = 0;
+          game.maxCombo = 0;
+        } else {
+          ev.lvl = levelNum;
+          ev.auraCharge = Math.min(ev.auraCharge, 25); // Не переносим полную ульту на старт босса
+        }
+
+        const boss = getBoss();
+        game.mode = "PLAYING";
+        game.tension = 0;
+        game.ropeHp = isFullReset ? 100 : Math.max(80, game.ropeHp);
+        if (isRestart && stageSnap) {
+          game.ropeHp = stageSnap.rope; ev.auraScore = stageSnap.aura;
+          game.totalSnaps = stageSnap.ts; game.perfectSnaps = stageSnap.ps;
+        } else {
+          stageSnap = { rope: game.ropeHp, aura: ev.auraScore, ts: game.totalSnaps, ps: game.perfectSnaps };
+        }
+        game.isHolding = false;
+        game.isBleeding = false;
+        game.whipWave = 0;
+        game.whipPhase = 0;
+        game.overheatFlash = 0;
+
+        game.altitude = 14;
+        game.grip = 100;
+        game.climberState = "CLIMBING";
+        game.stateTimer = 1.9;
+        game.stateDuration = 1.9;
+        game.cycleCount = 0;
+        game.limbPhase = 0;
+        game.flipAngle = 0;
+        game.staggerOffset = 0;
+        game.fallVy = 0;
+        game.fallY = 0;
+        game.fallRot = 0;
+        game.combo = 0;
+        game.barkText = boss.introBark;
+        game.barkTimer = 3.2;
+
+        game.tutorialStep = savedData.tutorialDone || ev.lvl > 1 ? 0 : 1;
+        game.shakeTime = 0;
+        game.shakePower = 0;
+        game.flashAlpha = 0;
+        debrisParticles.length = 0;
+        floatingPopups.length = 0;
+
+        updateGoldZoneUI();
+        initRopeNodes();
+        resetEventsForStage();
+        updateTutorialBanner();
+
+        ui.startScreen.classList.add("hidden");
+        ui.levelScreen.classList.add("hidden");
+        ui.pauseScreen.classList.add("hidden");
+        ui.gameoverScreen.classList.add("hidden");
+        ui.btnHoldTension.classList.remove("active");
+        syncHUD();
+      }
+
+      function updateTutorialBanner() {
+        if (game.tutorialStep === 0) {
+          ui.tutorialToast.classList.add("hidden");
+          return;
+        }
+        ui.tutorialToast.classList.remove("hidden");
+        if (game.tutorialStep === 1) {
+          ui.tutBadge.textContent = "Шаг 1/3 · Натяжение";
+          ui.tutText.innerHTML =
+            "Удерживайте <b>ПРОБЕЛ</b> (или кнопку «Натягивать»), чтобы набрать натяжение выше <b>45%</b>.";
+        } else if (game.tutorialStep === 2) {
+          ui.tutBadge.textContent = "Шаг 2/3 · Ожидание";
+          ui.tutText.innerHTML =
+            "Отлично! Следите за альпинистом: когда он потянется рукой вверх, загорится сигнал <b>«⚡ ПЕРЕХВАТ!»</b>";
+        } else if (game.tutorialStep === 3) {
+          ui.tutBadge.textContent = "Шаг 3/3 · Рывок!";
+          ui.tutText.innerHTML =
+            "<b>СЕЙЧАС!</b> Отпустите <b>ПРОБЕЛ</b> (или нажмите <b>РЫВОК</b>), пока рука альпиниста оторвана от скалы!";
+        }
+      }
+
+      // =========================================================================
+      // 4. МЕХАНИКА РЫВКА, СБАЛАНСИРОВАННОЙ ЛАВИНЫ И БОССОВ
+      // =========================================================================
+      function addShake(power, duration = 0.25) {
+        game.shakePower = Math.max(game.shakePower, power);
+        game.shakeTime = Math.max(game.shakeTime, duration);
+      }
+
+      function addScreenFlash(color, alpha = 0.24) {
+        game.flashColor = color;
+        game.flashAlpha = alpha;
+      }
+
+      function spawnPopup(text, x, y, color = "#ffffff", scale = 1) {
+        floatingPopups.push({
+          text,
+          x: Math.max(20, Math.min(width - 240, x)),
+          y: Math.max(60, y),
+          vy: -46,
+          life: 1.3,
+          maxLife: 1.3,
+          color,
+          scale,
+        });
+      }
+
+      function spawnDebris(x, y, count, color = "#d8e9f8", speedMul = 1) {
+        for (let i = 0; i < count; i++) {
+          const angle = -Math.PI * 0.85 + Math.random() * Math.PI * 0.7;
+          const speed = (50 + Math.random() * 160) * speedMul;
+          debrisParticles.push({
+            x: x + (Math.random() - 0.5) * 20,
+            y: y + (Math.random() - 0.5) * 20,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            r: 2 + Math.random() * 4.5,
+            color,
+            life: 0.6 + Math.random() * 0.6,
+            maxLife: 1.2,
+          });
+        }
+      }
+
+      function addAura(points, chargeDelta, x, y) {
+        let actualPoints = points;
+        let actualCharge = chargeDelta;
+
+        if (game.cashbackPerk) {
+          if (points < 0) actualPoints = Math.round(points * 0.5);
+          if (chargeDelta > 0) actualCharge = chargeDelta * 1.3;
+          if (chargeDelta < 0) actualCharge = chargeDelta * 0.5;
+        }
+
+        ev.auraScore += actualPoints;
+        ev.auraCharge = Math.max(0, Math.min(100, ev.auraCharge + actualCharge));
+        
+      }
+
+      // СБАЛАНСИРОВАННАЯ ЛАВИНА АУРЫ (Q): тактический пробой защиты, а не авто-победа!
+      function triggerAuraAvalanche() {
+        return; // Лавина отключена: в игре одна механика — рывок
+        ev.auraCharge = 0;
+        ev.ultCooldown = 14.0; // Кулдаун 14 секунд
+        ev.gaze = 0;
+        ev.mew = 0;
+        ev.kanevsky = false;
+        hideBanner();
+
+        const p = getClimberScreenPos();
+        sound.playAvalanche();
+        addShake(14, 0.38);
+        addScreenFlash("rgba(255, 213, 74, 1)", 0.25);
+
+        for (let i = 0; i < 36; i++) {
+          debrisParticles.push({
+            x: p.x - 60 + Math.random() * 140,
+            y: 60 + Math.random() * 120,
+            vx: -30 + Math.random() * 60,
+            vy: 180 + Math.random() * 220,
+            r: 3 + Math.random() * 4.5,
+            color: i % 3 === 0 ? "#ffd54a" : "#ffffff",
+            life: 1.0,
+            maxLife: 1.0,
+          });
+        }
+
+        // Лавина НЕ может добить босса сама по себе (оставляет минимум 5% хвата — добить нужно рывком!)
+        const prevGrip = game.grip;
+        game.grip = Math.max(5, game.grip - 11);
+        const actualGripLost = Math.round(prevGrip - game.grip);
+        game.altitude = Math.max(8, game.altitude - 4.5);
+        game.ropeHp = Math.min(100, game.ropeHp + 8);
+        game.staggerOffset = 18;
+
+        spawnPopup(
+          `⚡ ЛАВИНА! -${actualGripLost}% ХВАТА / +8% КАНАТА! ДОБИВАЙ!`,
+          p.x - 105,
+          p.y - 78,
+          "#ffd54a",
+          1.12
+        );
+        game.barkText = "«СНЕГ СВЕРХУ! Сбило дыхание, держусь из последних сил!»";
+        game.barkTimer = 2.2;
+
+        // Открывает короткое окно перехвата (1.0с), удар в которое не перезаряжает Лавину повторно
+        ev.fromAvalanche = true;
+        game.climberState = "VULNERABLE";
+        game.stateDuration = 1.0;
+        game.stateTimer = 1.0;
+        syncHUD();
+      }
+
+      function getCurrentPhaseInfo() {
+        const boss = getBoss();
+        const ws = boss.winScale;
+        if (game.altitude < 38) {
+          return {
+            index: 1,
+            name: boss.zoneTitle,
+            climbSpeed: 2.38 * boss.spd,
+            telegraphDur: 0.90 * ws,
+            vulnerableDur: 0.70 * ws,
+          };
+        } else if (game.altitude < 72) {
+          return {
+            index: 2,
+            name: boss.zoneTitle,
+            climbSpeed: 2.82 * boss.spd,
+            telegraphDur: 0.78 * ws,
+            vulnerableDur: 0.58 * ws,
+          };
+        } else {
+          return {
+            index: 3,
+            name: boss.zoneTitle,
+            climbSpeed: 3.30 * boss.spd,
+            telegraphDur: 0.66 * ws,
+            vulnerableDur: 0.46 * ws,
+          };
+        }
+      }
+
+      // Выполнение рывка канатом
+      function executeSnap() {
+        if (game.mode !== "PLAYING") return;
+        const t = game.tension;
+        game.isHolding = false;
+        ui.btnHoldTension.classList.remove("active");
+
+        if (t < 22) {
+          game.tension = 0;
+          return;
+        }
+
+        if (ev.mew === 1) {
+          spawnPopup("🤫 ОН МЬЮИТ! ДЕРЖИ В ЖЁЛТОЙ ЗОНЕ, НЕ ОТПУСКАЙ!", getClimberScreenPos().x - 95, getClimberScreenPos().y - 50, "#ffd54a", 1.0);
+          return;
+        }
+
+        const boss = getBoss();
+        const kevlarFactor = Math.pow(0.78, game.kevlarStacks);
+        const whipBonus = 1 + game.whipStacks * 0.18;
+        const goldBounds = getGoldZoneBounds();
+        const inSweetSpot = t >= 45 && t <= 85;
+        const inGoldSpot = t >= goldBounds.min && t <= goldBounds.max;
+
+        const climberPos = getClimberScreenPos();
+
+        // ПРОВЕРКА 1: Игрок ударил во время «Чилового взгляда»
+        if (ev.gaze === 2) {
+          ev.cleanGaze = false;
+          game.combo = 0;
+          ev.lock = 1.05;
+          game.tension = 0;
+          const dmg = Math.round(12 * kevlarFactor);
+          game.ropeHp = Math.max(0, game.ropeHp - dmg);
+          game.grip = Math.min(100, game.grip + 6);
+          sound.playSnap("blocked", 0.8);
+          sound.playBeepFail();
+          addShake(8, 0.24);
+          spawnPopup(`😎 «Я ПРОСТО ЧИЛОВЫЙ ПАРЕНЬ» -${dmg}% каната`, climberPos.x - 85, climberPos.y - 55, "#7fe3ff", 1.05);
+          addAura(-2500, -22, climberPos.x - 20, climberPos.y - 85);
+          if (game.ropeHp <= 0) triggerRopeSnapLoss();
+          return;
+        }
+
+        // ПРОВЕРКА 2: Игрок повёлся на блеф «Бу! Испугался?»
+        if (game.climberState === "BLUFF_WINDOW") {
+          game.combo = 0;
+          ev.lock = 1.0;
+          game.tension = 0;
+          const dmg = Math.round(13 * kevlarFactor);
+          game.ropeHp = Math.max(0, game.ropeHp - dmg);
+          game.grip = Math.min(100, game.grip + 6);
+          game.climberState = "CLIMBING";
+          game.stateTimer = 1.3;
+          sound.playBoo();
+          sound.playBeepFail();
+          addShake(9, 0.25);
+          spawnPopup(`🎭 КУПИЛСЯ НА «БУ!» (-${dmg}% каната / +6% хвата боссу)`, climberPos.x - 95, climberPos.y - 55, "#c68aff", 1.08);
+          addAura(-3000, -22, climberPos.x - 20, climberPos.y - 85);
+          if (game.ropeHp <= 0) triggerRopeSnapLoss();
+          return;
+        }
+
+        game.totalSnaps++;
+        const powerNorm = Math.min(1.18, t / 78);
+        game.whipWave = 22 + (t / 100) * 38;
+        game.whipPhase = 0;
+        game.tension = 0;
+
+        // СЦЕНАРИЙ А: ПОПАДАНИЕ В ОКНО ПЕРЕХВАТА ИЛИ СЕКРЕТНЫЙ УГОЛ КАНЕВСКОГО
+        const isKanevskyStrike = game.climberState === "BRACED" && ev.kanevsky;
+        if (game.climberState === "VULNERABLE" || isKanevskyStrike) {
+          ev.lock = 0.45;
+          game.perfectSnaps++;
+          game.combo++;
+          game.maxCombo = Math.max(game.maxCombo, game.combo);
+
+          // Сбалансированный базовый урон: нужно ~5-6 точных попаданий на босса
+          const rawBase = inGoldSpot ? 23 : inSweetSpot ? 18 : 11;
+          const chillMul = ev.chillBonus ? 1.35 : 1;
+          const kanevskyMul = isKanevskyStrike ? 1.28 : 1;
+          const comboBonus = Math.min(8, (game.combo - 1) * 2);
+
+          const gripDamage = Math.round(
+            rawBase * powerNorm * boss.dmgMul * whipBonus * chillMul * kanevskyMul + comboBonus
+          );
+          const extraPelmeniDrop = game.pelmeniPerk ? 2.5 : 0;
+          const altDrop = +(3.0 + powerNorm * 3.2 + extraPelmeniDrop).toFixed(1);
+
+          if (ev.chillBonus) {
+            spawnPopup("😎 ЧИЛЛ-БОНУС ×1.35!", climberPos.x - 45, climberPos.y - 82, "#7fe3ff", 1.08);
+            ev.chillBonus = false;
+          }
+          if (isKanevskyStrike) {
+            spawnPopup("🎙 «ОДНАКО КАНАТ ВЫБИЛ ЛЕДОРУБ!» ×1.28", climberPos.x - 85, climberPos.y - 82, "#c68aff", 1.08);
+            ev.kanevsky = false;
+            hideBanner();
+          }
+
+          // Узкий золотой импульс чинит +2% каната
+          if (inGoldSpot) {
+            game.ropeHp = Math.min(100, game.ropeHp + 1);
+            game.hitStop = 0.05;
+          }
+
+          game.grip = Math.max(0, game.grip - gripDamage);
+          game.altitude = Math.max(4, game.altitude - altDrop);
+          game.climberState = "STAGGERED";
+          game.stateDuration = 1.05;
+          game.stateTimer = 1.05;
+          game.staggerOffset = 26;
+          game.flipAngle = 0;
+
+          const barks = [
+            "«А-ах! Пальцы сорвались!»",
+            "«Канат специально дёрнул меня вниз?!»",
+            "«Страховка взбесилась!..»",
+            "«Чёрт, зацеп раскрошился!»",
+          ];
+          game.barkText = barks[game.perfectSnaps % barks.length];
+          game.barkTimer = 2.0;
+
+          sound.playSnap(inGoldSpot ? "gold" : "perfect", powerNorm);
+
+          // Если окно было открыто Лавиной, даём минимум заряда, чтобы не было бесконечной Лавины
+          const chargeGain = ev.fromAvalanche ? 8 : inGoldSpot ? 27 : 19;
+          ev.fromAvalanche = false;
+
+          addAura(
+            (inGoldSpot ? 1400 : 900) * game.combo,
+            chargeGain,
+            climberPos.x + 15,
+            climberPos.y - 102
+          );
+          addShake(inGoldSpot ? 15 : 11 * powerNorm, 0.3);
+          addScreenFlash(inGoldSpot ? "rgba(255, 213, 74, 1)" : "rgba(255, 62, 85, 1)", 0.2);
+          spawnDebris(climberPos.x, climberPos.y - 15, 22, inGoldSpot ? "#ffd54a" : "#ffffff", 1.3);
+
+          const label = inGoldSpot
+            ? `★ ЗОЛОТОЙ ИМПУЛЬС! -${gripDamage}% (+2% каната)`
+            : inSweetSpot
+            ? `ИДЕАЛЬНЫЙ ПЕРЕХВАТ! -${gripDamage}%`
+            : `СЛАБЫЙ РЫВОК! -${gripDamage}%`;
+          spawnPopup(label, climberPos.x - 65, climberPos.y - 52, inGoldSpot ? "#ffd54a" : "#ff5c70", 1.15);
+          spawnPopup(`-${altDrop} м высоты`, climberPos.x - 35, climberPos.y - 24, "#4fd1ff", 0.95);
+
+          if (game.tutorialStep > 0) {
+            game.tutorialStep = 0;
+            savedData.tutorialDone = true;
+            saveProgress();
+            updateTutorialBanner();
+          }
+
+          if (game.grip <= 0) {
+            triggerClimberFall();
+          }
+          return;
+        }
+
+        // СЦЕНАРИЙ Б: СЛИШКОМ РАНО (В ФАЗУ ПОДГОТОВКИ TELEGRAPH)
+        ev.lock = 0.85;
+        if (game.climberState === "TELEGRAPH") {
+          game.combo = 0;
+          const gripDamage = Math.round(6 * powerNorm);
+          const ropeCost = Math.round(10 * powerNorm * kevlarFactor);
+          game.grip = Math.max(0, game.grip - gripDamage);
+          game.ropeHp = Math.max(0, game.ropeHp - ropeCost);
+          game.altitude = Math.max(4, game.altitude - 1.0);
+          game.climberState = "CLIMBING";
+          game.stateDuration = 1.45;
+          game.stateTimer = 1.45;
+          game.staggerOffset = 8;
+
+          game.barkText = "«Рано дёрнул! Я ещё держался второй рукой!»";
+          game.barkTimer = 2.0;
+
+          sound.playSnap("early", powerNorm);
+          sound.playBeepFail();
+          addAura(-1800, -16, climberPos.x - 20, climberPos.y - 90);
+          spawnPopup(`💳 ОПЛАТА НЕ ПРОШЛА · РАНО (-${ropeCost}% каната)`, climberPos.x - 80, climberPos.y - 45, "#ffaa33", 1.0);
+          addShake(6 * powerNorm, 0.18);
+
+          if (game.grip <= 0) triggerClimberFall();
+          else if (game.ropeHp <= 0) triggerRopeSnapLoss();
+          return;
+        }
+
+        // СЦЕНАРИЙ В: ОШИБКА — УДАР В ЖЁСТКИЙ УПОР ЛЕДОРУБОМ (BRACED)
+        if (game.climberState === "BRACED") {
+          game.combo = 0;
+          const ropeDamage = Math.round((16 * powerNorm + 5) * kevlarFactor);
+          game.ropeHp = Math.max(0, game.ropeHp - ropeDamage);
+          game.grip = Math.min(100, game.grip + 4);
+          game.staggerOffset = 4;
+
+          game.barkText = "«Ледоруб вбит намертво — только верёвку себе перетрёшь!»";
+          game.barkTimer = 2.2;
+
+          sound.playSnap("blocked", powerNorm);
+          addAura(-3500, -25, climberPos.x - 20, climberPos.y - 90);
+          addShake(11 * powerNorm, 0.25);
+          addScreenFlash("rgba(255, 170, 51, 1)", 0.22);
+          spawnDebris(climberPos.x + 18, climberPos.y - 12, 16, "#ffaa33", 1.1);
+          spawnPopup(
+            `🛡 УДАР В ЛЕДОРУБ! -${ropeDamage}% каната`,
+            climberPos.x - 65,
+            climberPos.y - 45,
+            "#ff3e55",
+            1.05
+          );
+
+          if (game.ropeHp <= 0) triggerRopeSnapLoss();
+          return;
+        }
+
+        // СЦЕНАРИЙ Г: ХОЛОСТОЙ РЫВОК ВО ВРЕМЯ ОБЫЧНОГО ПОДЪЁМА
+        game.combo = 0;
+        const gripDamage = Math.round(4 * powerNorm);
+        const ropeDamage = Math.round(13 * powerNorm * kevlarFactor);
+        game.grip = Math.max(0, game.grip - gripDamage);
+        game.ropeHp = Math.max(0, game.ropeHp - ropeDamage);
+        game.altitude = Math.max(4, game.altitude - 0.6);
+        game.staggerOffset = 6;
+
+        sound.playSnap("normal", powerNorm);
+        sound.playBeepFail();
+        addAura(-2200, -18, climberPos.x - 20, climberPos.y - 90);
+        spawnPopup(`🌬 НЕ ГОНЯЙ ВОЗДУХ! (-${ropeDamage}% волокон)`, climberPos.x - 70, climberPos.y - 42, "#b8cde0", 0.95);
+        addShake(5 * powerNorm, 0.16);
+
+        if (game.grip <= 0) triggerClimberFall();
+        else if (game.ropeHp <= 0) triggerRopeSnapLoss();
+      }
+
+      function triggerClimberFall() {
+        game.mode = "ENDING_ANIM";
+        game.climberState = "FALLING";
+        game.stateTimer = 1.85;
+        game.fallY = 0;
+        game.fallVy = 45;
+        game.fallRot = 0;
+        hideBanner();
+        const fallQuotes = [
+          "«НЕ-Е-ЕТ! СТРАХОВКА СБРОСИЛА МЕНЯ!..»",
+          "«ЧАТ, ЭТО НЕ ПОСТАНОВА! МЕНЯ СОРВАЛО!..»",
+          "«МОЯ СЕРИЯ МЬЮИНГА ПРЕРВАНА НАВСЕГДА!..»",
+        ];
+        game.barkText = fallQuotes[ev.lvl - 1] || fallQuotes[0];
+        game.barkTimer = 2.0;
+        sound.playEnding(true);
+        addShake(18, 0.5);
+      }
+
+      function triggerRopeSnapLoss() {
+        game.mode = "ENDING_ANIM";
+        game.climberState = "SUMMITED";
+        game.stateTimer = 1.6;
+        hideBanner();
+        game.barkText = "«Верёвка лопнула от трения! Но я удержался на карнизе!»";
+        game.barkTimer = 2.0;
+        sound.playEnding(false);
+        addShake(15, 0.45);
+        const anchor = getAnchorScreenPos();
+        spawnDebris(anchor.x, anchor.y + 30, 28, "#ff5e4d", 1.4);
+      }
+
+      function triggerClimberSummitLoss() {
+        game.mode = "ENDING_ANIM";
+        game.climberState = "SUMMITED";
+        game.stateTimer = 1.6;
+        hideBanner();
+        game.barkText = "«Я НА ВЕРШИНЕ! Гора покорилась человеку!»";
+        game.barkTimer = 2.0;
+        sound.playEnding(false);
+      }
+
+      // Экран перехода между уровнями с генерацией 3 МЕМНЫХ ПЕРКОВ
+      function openLevelTransitionModal() {
+        game.mode = "LEVEL_TRANSITION";
+        ui.interBadge.textContent = `Босс ${ev.lvl} из 3 улетел в пропасть!`;
+        ui.interTitle.textContent = `УРОВЕНЬ ${ev.lvl} ПРОЙДЕН`;
+
+        if (ev.lvl === 1) {
+          ui.interDesc.innerHTML =
+            "Следующий противник: <b>II. Стример «Фармер Ауры»</b>.<br>Он быстрее и умеет блефовать: после <b>«🎭 БУ!»</b> не отпускайте канат — настоящее окно откроется следом.";
+        } else {
+          ui.interDesc.innerHTML =
+            "Финальный босс: <b>III. Гигачад-Мьюер</b>.<br>Самые узкие окна, частые упоры ледорубом и блеф. Не торопитесь.";
+        }
+
+        const tierIndex = Math.min(MEME_PERK_TIERS.length - 1, ev.lvl - 1);
+        const perks = MEME_PERK_TIERS[tierIndex];
+        ui.perkGridContainer.innerHTML = "";
+
+        perks.forEach((p) => {
+          const card = document.createElement("div");
+          card.className = "perk-card";
+          card.innerHTML = `
+            <div>
+              <div class="perk-title">${p.title}</div>
+              <div class="perk-meme">${p.meme}</div>
+            </div>
+            <div class="perk-stat">${p.stat}</div>
+          `;
+          card.addEventListener("click", () => {
+            sound.init();
+            p.apply(game);
+            startStage(ev.lvl + 1, false);
+          });
+          ui.perkGridContainer.appendChild(card);
+        });
+
+        ui.levelScreen.classList.remove("hidden");
+      }
+
+      function showGameOverModal() {
+        game.mode = "GAMEOVER";
+        hideBanner();
+        const isVictory = game.climberState === "FALLING" && ev.lvl >= 3;
+        const acc =
+          game.totalSnaps > 0 ? Math.round((game.perfectSnaps / game.totalSnaps) * 100) : 0;
+        const dropAlt = Math.round(game.altitude);
+
+        let rank = "C · Учебный шнурок";
+        let rankLetter = "C";
+        if (isVictory) {
+          if (acc >= 72 && ev.auraScore >= 8000) {
+            rank = "S · Батя Страховки (ГОСТ)";
+            rankLetter = "S";
+          } else if (acc >= 52) {
+            rank = "A · Сигма-Канат";
+            rankLetter = "A";
+          } else {
+            rank = "B · Суровая Пенька";
+            rankLetter = "B";
+          }
+
+          const rankOrder = { S: 4, A: 3, B: 2, C: 1 };
+          if (!savedData.bestRank || rankOrder[rankLetter] > (rankOrder[savedData.bestRank] || 0)) {
+            savedData.bestRank = rankLetter;
+          }
+          if (ev.auraScore > savedData.bestAura) {
+            savedData.bestAura = ev.auraScore;
+          }
+          saveProgress();
+          updateBestRecordUI();
+        } else {
+          rank = `Попытка на Ур. ${ev.lvl}/3`;
+        }
+
+        if (isVictory) {
+          ui.endBadge.textContent = "Полная победа · Все 3 босса повержены!";
+          ui.endTitle.textContent = "ГОРА СВОБОДНА!";
+          ui.endTitle.style.color = "#3ddc97";
+          ui.endReason.textContent =
+            "Турист, Фармер Ауры и даже непоколебимый Гигачад-Мьюер сорвались вниз. Вы доказали, кто настоящий хозяин склона!";
+          ui.endQuote.textContent =
+            "«Три карабина звякнули о гранит. Больше никто не посмеет дёргать меня ради лайков и рекордов».";
+          ui.btnRetryCheckpoint.textContent = "Сыграть триумф заново (R)";
+        } else if (game.ropeHp <= 0) {
+          ui.endBadge.textContent = `Поражение на Уровне ${ev.lvl}/3`;
+          ui.endTitle.textContent = "КАНАТ ПЕРЕТЁРСЯ";
+          ui.endTitle.style.color = "#ff3e55";
+          ui.endReason.textContent =
+            "Оплётка не выдержала трения и ударов в ледоруб. Не держите натяжение выше 60% без нужды и не бейте в упор.";
+          ui.endQuote.textContent =
+            "«Ярость без расчёта сжигает собственные нити. Дождись момента, когда рука человека в воздухе».";
+          ui.btnRetryCheckpoint.textContent = `Реванш на Уровне ${ev.lvl} (R)`;
+        } else {
+          ui.endBadge.textContent = `Поражение на Уровне ${ev.lvl}/3`;
+          ui.endTitle.textContent = "БОСС ДОСТИГ ПИКА";
+          ui.endTitle.style.color = "#ffaa33";
+          ui.endReason.textContent =
+            "Альпинист добрался до отметки 100 метров. Бейте в каждое окно перехвата: между ними он восстанавливает хват.";
+          ui.endQuote.textContent =
+            "«Он воткнул флаг в снег, но следующий подъём станет для него последним...»";
+          ui.btnRetryCheckpoint.textContent = `Реванш на Уровне ${ev.lvl} (R)`;
+        }
+
+        ui.statAltitude.textContent = `Ур. ${ev.lvl}/3 · ${dropAlt} м`;
+        ui.statAccuracy.textContent = `${acc}% (${game.perfectSnaps}/${game.totalSnaps})`;
+        const sign = ev.auraScore >= 0 ? "+" : "";
+        ui.statRopeHp.textContent = `${sign}${ev.auraScore.toLocaleString("ru")} ✨`;
+        ui.statRank.textContent = rank;
+        ui.gameoverScreen.classList.remove("hidden");
+      }
+
+      // =========================================================================
+      // 5. ИИ БОССОВ, МЕМ-ИВЕНТЫ И ФИЗИКА КАНАТА
+      // =========================================================================
+      function getWallXAtY(y) {
+        const baseWallX = width * 0.64;
+        const wave = Math.sin((y + game.altitude * 12) * 0.015) * 14;
+        return baseWallX + wave;
+      }
+
+      function getAnchorScreenPos() {
+        const y = Math.max(92, height * 0.13);
+        const x = getWallXAtY(y) - 8;
+        return { x, y };
+      }
+
+      function getClimberScreenPos() {
+        const normAlt = Math.max(0, Math.min(1, game.altitude / 100));
+        const baseY = height * 0.73 - normAlt * (height * 0.37) + game.staggerOffset + game.fallY;
+        const wallX = getWallXAtY(baseY);
+        const x = wallX - 38 - (game.climberState === "FALLING" ? game.fallY * 0.18 : 0);
+        return { x, y: baseY, wallX };
+      }
+
+      function updateEvents(dt) {
+        if (ev.lock > 0) ev.lock = Math.max(0, ev.lock - dt);
+        if (ev.ultCooldown > 0) ev.ultCooldown = Math.max(0, ev.ultCooldown - dt);
+        if (game.tutorialStep > 0) return;
+
+        const cs = game.climberState;
+        const p = getClimberScreenPos();
+
+        // 1) «Чиловый парень»: 1.0с на реакцию, нужно опустить натяжение ниже 14%
+        if (ev.gaze === 0) {
+          ev.nextGaze -= dt;
+          if (ev.nextGaze <= 0 && ev.mew === 0 && cs === "CLIMBING" && game.altitude > 20) {
+            ev.gaze = 1;
+            ev.gt = 1.0;
+            sound.playChill(false);
+            showBanner("😎 ОН ПОВОРАЧИВАЕТСЯ К КАМЕРЕ — ЗАЖМИ [S], ЧТОБЫ ОСЛАБИТЬ КАНАТ!", "#7fe3ff");
+          }
+        } else {
+          ev.gt -= dt;
+          if (ev.gaze === 1 && ev.gt <= 0) {
+            ev.gaze = 2;
+            ev.gt = 1.35;
+            ev.cleanGaze = true;
+            sound.playChill(true);
+            showBanner("😎 «Я ПРОСТО ЧИЛОВЫЙ ПАРЕНЬ» — ДЕРЖИ НАТЯЖЕНИЕ НИЖЕ 14%!", "#7fe3ff");
+          } else if (ev.gaze === 2) {
+            if (ev.gt < 1.0 && game.tension > 14) {
+              ev.cleanGaze = false;
+              game.tension = 0;
+              game.isHolding = false;
+              ui.btnHoldTension.classList.remove("active");
+              ev.lock = 1.05;
+              const kevlarFactor = Math.pow(0.78, game.kevlarStacks);
+              const dmg = Math.round(12 * kevlarFactor);
+              game.ropeHp = Math.max(0, game.ropeHp - dmg);
+              game.grip = Math.min(100, game.grip + 6);
+              game.combo = 0;
+              spawnPopup(`😎 СПАЛИЛ НАТЯЖЕНИЕ! -${dmg}% каната`, p.x - 80, p.y - 60, "#7fe3ff", 1.05);
+              addAura(-2500, -18, p.x - 20, p.y - 90);
+              sound.playBeepFail();
+              addShake(7, 0.22);
+              if (game.ropeHp <= 0) {
+                triggerRopeSnapLoss();
+                return;
+              }
+            }
+            if (ev.gt <= 0) {
+              ev.gaze = 0;
+              ev.nextGaze = 9.5 + Math.random() * 3.5;
+              hideBanner();
+              if (ev.cleanGaze) {
+                ev.chillBonus = true;
+                addAura(1100, 20, p.x - 20, p.y - 90);
+                spawnPopup("😎 РЕСПЕКТ ЗА ЧИЛЛ! Следующий удар ×1.35", p.x - 85, p.y - 60, "#7fe3ff", 1.08);
+              }
+            }
+          }
+        }
+
+        // 2) Мьюинг на 3-м боссе: требует удержания 1.05с (или 0.75с с перком Контр-Мьюинга), пока он регенит хват!
+        if (ev.lvl >= 3) {
+          const targetMewTime = game.counterMewPerk ? 0.74 : 1.05;
+          if (ev.mew === 0) {
+            ev.nextMew -= dt;
+            if (ev.nextMew <= 0 && ev.gaze === 0 && cs === "CLIMBING") {
+              ev.mew = 1;
+              ev.mt = 3.5;
+              ev.mp = 0;
+              sound.playNarr();
+              showBanner("🤫 МЬЮИНГ! ОН ВОССТАНАВЛИВАЕТ ХВАТ — ДЕРЖИ В ЖЁЛТОЙ ЗОНЕ (45–85%), ЧТОБЫ ОН ЗАСМЕЯЛСЯ!", "#ffd54a");
+            }
+          } else {
+            ev.mt -= dt;
+            if (cs === "CLIMBING") game.stateTimer = Math.max(game.stateTimer, 0.5);
+            // Пока Гигачад мьюит, он восстанавливает хват, если его быстро не расколоть!
+            game.grip = Math.min(100, game.grip + 1.8 * dt);
+
+            if (game.tension >= 45 && game.tension <= 85) {
+              ev.mp += dt;
+            } else {
+              ev.mp = Math.max(0, ev.mp - dt * 0.65);
+            }
+            if (ev.mp >= targetMewTime) {
+              ev.mew = 0;
+              ev.nextMew = 9.5 + Math.random() * 3.5;
+              hideBanner();
+              game.grip = Math.max(5, game.grip - 8);
+              ev.fromAvalanche = false;
+              game.climberState = "VULNERABLE";
+              game.stateDuration = 1.15;
+              game.stateTimer = 1.15;
+              sound.playVulnerableHeartbeat();
+              addAura(1800, 22, p.x - 20, p.y - 95);
+              spawnPopup("🤫 ПФФ... ХА-ХА! МЬЮИНГ СОРВАН! БЕЙ!", p.x - 95, p.y - 60, "#ffd54a", 1.12);
+              game.barkText = "«Пфф... Ладно, ты меня рассмешил! Челюсть свело!»";
+              game.barkTimer = 2.0;
+            } else if (ev.mt <= 0) {
+              ev.mew = 0;
+              ev.nextMew = 8.5 + Math.random() * 3;
+              hideBanner();
+              spawnPopup("🗿 ОН ПРОМЬЮИЛ БЕЗ СМЕХА (+УСТОЙЧИВОСТЬ)", p.x - 95, p.y - 60, "#ff6b6b", 1.0);
+            }
+          }
+        }
+      }
+
+      function updateClimberAI(dt) {
+        const phase = getCurrentPhaseInfo();
+        const boss = getBoss();
+        game.stateTimer -= dt;
+        game.staggerOffset = Math.max(0, game.staggerOffset - dt * 32);
+
+        updateEvents(dt);
+        if (game.mode !== "PLAYING") return;
+
+        // Регенерация хвата во время подъёма и упора ледорубом
+        if (game.climberState === "CLIMBING" && ev.mew === 0) {
+          game.grip = Math.min(100, game.grip + boss.regen * dt);
+        } else if (game.climberState === "BRACED" && !ev.kanevsky) {
+          game.grip = Math.min(100, game.grip + boss.regen * 0.6 * dt);
+        }
+
+        if (game.barkTimer > 0) game.barkTimer -= dt;
+
+        if (game.climberState === "CLIMBING") {
+          game.altitude += phase.climbSpeed * dt;
+          game.limbPhase += dt * (4.2 + phase.index * 0.7);
+          game.flipAngle = 0;
+
+          if (game.altitude >= 100) {
+            game.altitude = 100;
+            triggerClimberSummitLoss();
+            return;
+          }
+
+          if (game.stateTimer <= 0) {
+            game.cycleCount++;
+            const shouldBrace =
+              game.tutorialStep === 0 &&
+              (phase.index >= 2 || ev.lvl >= 2) &&
+              game.cycleCount % 3 === 0;
+
+            if (shouldBrace) {
+              game.climberState = "BRACED";
+              game.stateDuration = 1.3;
+              game.stateTimer = 1.3;
+              ev.kanevsky = false;
+              if (ev.kanevsky) {
+                sound.playNarr();
+                showBanner("🎙 «НИКТО НЕ БИЛ В ЛЕДОРУБ... КРОМЕ ЭТОГО КАНАТА!» БЕЙ ПО УПОРУ СЕЙЧАС!", "#c68aff");
+                game.barkText = "«Вбил ледоруб в старую трещину, вроде держит...»";
+              } else {
+                game.barkText = "«Сильный ветер! Вбиваю ледоруб намертво!»";
+              }
+              game.barkTimer = 1.3;
+            } else {
+              game.climberState = "TELEGRAPH";
+              const td = phase.telegraphDur * (0.85 + Math.random() * 0.25);
+              ev.willBluff =
+                ev.lvl >= 2 &&
+                game.tutorialStep === 0 &&
+                ev.gaze === 0 &&
+                Math.random() < (ev.lvl === 2 ? 0.34 : 0.30);
+              game.stateDuration = td;
+              game.stateTimer = td;
+              sound.playTelegraphCue();
+              const pos = getClimberScreenPos();
+              spawnDebris(pos.wallX - 6, pos.y - 36, 7, "#dceeff", 0.5);
+            }
+          }
+        } else if (game.climberState === "TELEGRAPH") {
+          game.altitude += phase.climbSpeed * 0.32 * dt;
+          if (game.stateTimer <= 0) {
+            if (ev.willBluff) {
+              ev.willBluff = false;
+              game.climberState = "BLUFF_WINDOW";
+              game.stateDuration = 0.68;
+              game.stateTimer = 0.68;
+              game.barkText = "«БУ! ИСПУГАЛСЯ? НЕ БОЙСЯ, Я ОБМАНУЛ!»";
+              game.barkTimer = 1.4;
+              sound.playBoo();
+              showBanner("🎭 БЛЕФ «БУ! ИСПУГАЛСЯ?» — ДЕРЖИ КАНАТ, НЕ ОТПУСКАЙ СЕЙЧАС!", "#c68aff");
+              return;
+            }
+            enterVulnerableWindow(phase.vulnerableDur);
+          }
+        } else if (game.climberState === "BLUFF_WINDOW") {
+          if (game.stateTimer <= 0) {
+            hideBanner();
+            const p = getClimberScreenPos();
+            addAura(900, 16, p.x - 20, p.y - 90);
+            spawnPopup("🎭 БЛЕФ РАСКРЫТ! ОН ОТКРЫЛСЯ!", p.x - 75, p.y - 55, "#3ddc97", 1.08);
+            enterVulnerableWindow(phase.vulnerableDur + 0.18);
+          }
+        } else if (game.climberState === "VULNERABLE") {
+          game.altitude += phase.climbSpeed * 0.5 * dt;
+          if (ev.lvl === 2) {
+            game.flipAngle += dt * 8.5;
+          }
+          if (game.stateTimer <= 0) {
+            ev.fromAvalanche = false;
+            game.climberState = "CLIMBING";
+            game.stateDuration = 1.55 + Math.random() * 0.45;
+            game.stateTimer = game.stateDuration;
+            game.flipAngle = 0;
+            game.grip = Math.min(100, game.grip + 12);
+            game.altitude += 3;
+            spawnPopup("Упущено!", getClimberScreenPos().x - 30, getClimberScreenPos().y - 60, "#b8cde0", 0.9);
+          }
+        } else if (game.climberState === "BRACED") {
+          if (game.stateTimer <= 0) {
+            if (ev.kanevsky) {
+              ev.kanevsky = false;
+              hideBanner();
+            }
+            game.climberState = "TELEGRAPH";
+            game.stateDuration = phase.telegraphDur * 0.85;
+            game.stateTimer = game.stateDuration;
+            sound.playTelegraphCue();
+          }
+        } else if (game.climberState === "STAGGERED") {
+          if (game.stateTimer <= 0) {
+            game.climberState = "CLIMBING";
+            game.stateDuration = 1.65;
+            game.stateTimer = 1.65;
+          }
+        }
+      }
+
+      function enterVulnerableWindow(duration) {
+        ev.fromAvalanche = false;
+        game.climberState = "VULNERABLE";
+        const vulDur = game.tutorialStep > 0 ? 2.1 : duration;
+        game.stateDuration = vulDur;
+        game.stateTimer = vulDur;
+        sound.playVulnerableHeartbeat();
+        if (game.tutorialStep === 2) {
+          game.tutorialStep = 3;
+          updateTutorialBanner();
+        }
+      }
+
+      function updateRopePhysics(dt) {
+        const kevlarFactor = Math.pow(0.78, game.kevlarStacks);
+        const greaseFactor = game.sigmaGrease ? 0.65 : 1.0;
+
+        if (game.isHolding && game.mode === "PLAYING" && ev.lock <= 0) {
+          const chargeRate = 62;
+          game.tension = Math.min(100, game.tension + chargeRate * dt);
+          if (game.tension > 60 && game.tension <= 85) {
+            game.ropeHp = Math.max(0, game.ropeHp - 4.5 * kevlarFactor * greaseFactor * dt);
+            if (game.ropeHp <= 0) { triggerRopeSnapLoss(); return; }
+          }
+
+          if (game.tutorialStep === 1 && game.tension >= 48) {
+            game.tutorialStep = 2;
+            updateTutorialBanner();
+          }
+
+          // Перегрузка каната (>85%): ощутимое трение о скальный карниз
+          if (game.tension > 85) {
+            const overload = (game.tension - 85) / 15;
+            game.ropeHp = Math.max(
+              0,
+              game.ropeHp - (9.5 + overload * 16) * kevlarFactor * greaseFactor * dt
+            );
+            game.overheatFlash += dt * 14;
+            addShake(2.5, 0.08);
+            const anchor = getAnchorScreenPos();
+            if (Math.random() < 0.45) {
+              spawnDebris(anchor.x - 4, anchor.y + 8, 1, "#ff7b54", 0.65);
+            }
+            if (game.ropeHp <= 0) {
+              triggerRopeSnapLoss();
+              return;
+            }
+          }
+        } else if (game.isBleeding && game.mode === "PLAYING") {
+          game.tension = Math.max(0, game.tension - 92 * dt);
+          ev.lock = Math.max(ev.lock, 0.25);
+        } else {
+          game.tension = Math.max(0, game.tension - 22 * dt);
+        }
+
+        if (game.whipWave > 0.1) {
+          game.whipWave *= Math.pow(0.06, dt);
+          game.whipPhase += dt * 28;
+        } else {
+          game.whipWave = 0;
+        }
+
+        const anchor = getAnchorScreenPos();
+        const climber = getClimberScreenPos();
+        const attachX = climber.x + 6;
+        const attachY = climber.y - 8;
+
+        const tensionNorm = game.tension / 100;
+        const sagAmount = (1 - tensionNorm) * 68;
+        const vibAmp = tensionNorm > 0.4 ? (tensionNorm - 0.4) * 9.5 : 0;
+
+        for (let i = 0; i < ROPE_NODES; i++) {
+          const u = i / (ROPE_NODES - 1);
+          const baseX = anchor.x + (attachX - anchor.x) * u;
+          const baseY = anchor.y + (attachY - anchor.y) * u;
+
+          const parabola = Math.sin(u * Math.PI);
+          const sagX = -sagAmount * 0.48 * parabola;
+          const sagY = sagAmount * 0.75 * parabola;
+
+          const highVib = Math.sin(game.time * 48 + i * 1.3) * vibAmp * parabola;
+          const whipOffset =
+            Math.sin(u * Math.PI * 2.5 - game.whipPhase) * game.whipWave * parabola;
+
+          let freeWhipX = 0;
+          if (game.climberState === "FALLING") {
+            freeWhipX = Math.sin(game.time * 12 + u * 5) * 45 * u;
+          }
+
+          game.ropeNodes[i].x = baseX + sagX + highVib + whipOffset + freeWhipX;
+          game.ropeNodes[i].y = baseY + sagY;
+        }
+      }
+
+      function updateParticles(dt) {
+        const windBoost = 1 + (game.altitude / 100) * 1.4;
+        for (let i = 0; i < snowParticles.length; i++) {
+          const p = snowParticles[i];
+          p.x += p.vx * windBoost * dt;
+          p.y += p.vy * (0.8 + windBoost * 0.3) * dt;
+          if (p.x < -10) p.x = width + 10;
+          if (p.y > height + 10) {
+            p.y = -10;
+            p.x = Math.random() * width;
+          }
+        }
+
+        for (let i = debrisParticles.length - 1; i >= 0; i--) {
+          const d = debrisParticles[i];
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
+          d.vy += 360 * dt;
+          d.life -= dt;
+          if (d.life <= 0) debrisParticles.splice(i, 1);
+        }
+
+        for (let i = floatingPopups.length - 1; i >= 0; i--) {
+          const f = floatingPopups[i];
+          f.y += f.vy * dt;
+          f.life -= dt;
+          if (f.life <= 0) floatingPopups.splice(i, 1);
+        }
+      }
+
+      function syncHUD() {
+        const boss = getBoss();
+        ui.bossNameLabel.textContent = boss.name;
+
+        const gripRound = Math.round(game.grip);
+        ui.gripText.textContent = `${gripRound}%`;
+        ui.gripBar.style.width = `${gripRound}%`;
+
+        if (game.grip > 65) ui.climberMood.textContent = "Уверенный хват";
+        else if (game.grip > 35) ui.climberMood.textContent = "Пальцы скользят";
+        else ui.climberMood.textContent = "На грани срыва!";
+
+        ui.comboText.textContent = `Серия: ${game.combo}`;
+
+        const phase = getCurrentPhaseInfo();
+        ui.phaseName.textContent = `Ур. ${ev.lvl}/3 · ${phase.name}`;
+        ui.altitudeText.textContent = `${Math.round(game.altitude)} / 100 м`;
+
+        // Счётчик Ауры и кнопка Лавины (с учётом кулдауна)
+        ui.auraScoreText.textContent = ev.auraScore.toLocaleString("ru");
+        ui.auraChargeBar.style.width = `${Math.round(ev.auraCharge)}%`;
+        if (ev.ultCooldown > 0) {
+          ui.btnAuraUlt.classList.remove("ready");
+          ui.btnAuraUlt.textContent = `⏳ КД Лавины (${Math.ceil(ev.ultCooldown)}с)`;
+        } else if (ev.auraCharge >= 100) {
+          ui.btnAuraUlt.classList.add("ready");
+          ui.btnAuraUlt.textContent = "⚡ ЛАВИНА ГОТОВА [Q]!";
+        } else {
+          ui.btnAuraUlt.classList.remove("ready");
+          ui.btnAuraUlt.textContent = `⚡ Лавина [Q] (${Math.round(ev.auraCharge)}%)`;
+        }
+
+        // Баннер состояния альпиниста
+        ui.stateBanner.className = "state-banner";
+        if (game.climberState === "VULNERABLE") {
+          ui.stateBanner.classList.add("vulnerable");
+          ui.stateBanner.textContent = "⚡ ПЕРЕХВАТ — ОТПУСКАЙ КАНАТ!";
+        } else if (game.climberState === "BLUFF_WINDOW") {
+          ui.stateBanner.classList.add("bluff");
+          ui.stateBanner.textContent = "🎭 БЛЕФ «БУ!» — ДЕРЖИ, НЕ РВИ!";
+        } else if (game.climberState === "TELEGRAPH") {
+          ui.stateBanner.classList.add("telegraph");
+          ui.stateBanner.textContent = "⚠ ТЯНЕТСЯ К ВЫСТУПУ (ГОТОВЬСЯ)";
+        } else if (game.climberState === "BRACED") {
+          if (ev.kanevsky) {
+            ui.stateBanner.classList.add("vulnerable");
+            ui.stateBanner.textContent = "🎙 СЕКРЕТНЫЙ УГОЛ — БЕЙ В ЛЕДОРУБ!";
+          } else {
+            ui.stateBanner.classList.add("braced");
+            ui.stateBanner.textContent = "🛡 УПОР ЛЕДОРУБОМ (НЕ БИТЬ!)";
+          }
+        } else if (game.climberState === "STAGGERED") {
+          ui.stateBanner.textContent = "💥 ПОТЕРЯ РАВНОВЕСИЯ!";
+        } else {
+          ui.stateBanner.textContent = ev.mew ? "🤫 МЬЮИНГ: ДЕРЖИ 45–85%!" : "ПОДЪЁМ ПО СКЛОНУ";
+        }
+
+        const ropeRound = Math.round(game.ropeHp);
+        ui.ropeHpText.textContent = `${ropeRound}%`;
+        ui.ropeHpBar.style.width = `${ropeRound}%`;
+        if (ropeRound > 70) ui.ropeStatusText.textContent = "Оплётка цела";
+        else if (ropeRound > 35) ui.ropeStatusText.textContent = "Волокна потёрты";
+        else ui.ropeStatusText.textContent = "ОПАСНЫЙ ИЗНОС!";
+
+        const acc =
+          game.totalSnaps > 0
+            ? `${Math.round((game.perfectSnaps / game.totalSnaps) * 100)}%`
+            : "—";
+        ui.accuracyText.textContent = `Точность: ${acc}`;
+
+        const tensionRound = Math.round(game.tension);
+        ui.tensionText.textContent = `${tensionRound}%`;
+        ui.tensionBar.style.width = `${tensionRound}%`;
+      }
+
+      // =========================================================================
+      // 6. ХУДОЖЕСТВЕННАЯ ОТРИСОВКА НА CANVAS
+      // =========================================================================
+      function renderScene() {
+        ctx.save();
+
+        if (game.shakeTime > 0) {
+          const sx = (Math.random() - 0.5) * 2 * game.shakePower;
+          const sy = (Math.random() - 0.5) * 2 * game.shakePower;
+          ctx.translate(sx, sy);
+        }
+
+        const boss = getBoss();
+        const altNorm = Math.min(1, game.altitude / 100);
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+        skyGrad.addColorStop(0, boss.skyTop);
+        skyGrad.addColorStop(0.55, boss.skyMid);
+        skyGrad.addColorStop(1, boss.skyBot);
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        const sunX = width * 0.24;
+        const sunY = height * 0.22 + altNorm * 45;
+        const sunGlow = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 220);
+        const sunCol =
+          ev.lvl === 1
+            ? "rgba(185, 228, 255, 0.24)"
+            : ev.lvl === 2
+            ? "rgba(235, 150, 255, 0.24)"
+            : "rgba(255, 200, 120, 0.24)";
+        sunGlow.addColorStop(0, sunCol);
+        sunGlow.addColorStop(1, "rgba(20, 40, 65, 0)");
+        ctx.fillStyle = sunGlow;
+        ctx.fillRect(0, 0, width, height);
+
+        const layerColors =
+          ev.lvl === 1
+            ? ["#102033", "#162c46", "#1d3856"]
+            : ev.lvl === 2
+            ? ["#1a1030", "#261742", "#331f54"]
+            : ["#220d15", "#30131e", "#401a28"];
+        bgPeaks.forEach((pts, idx) => {
+          const parallaxY = altNorm * (25 + idx * 22);
+          ctx.fillStyle = layerColors[idx];
+          ctx.beginPath();
+          ctx.moveTo(0, height);
+          pts.forEach((p) => {
+            ctx.lineTo(p.nx * width, p.ny * height + parallaxY);
+          });
+          ctx.lineTo(width, height);
+          ctx.closePath();
+          ctx.fill();
+        });
+
+        const fog = ctx.createLinearGradient(0, height * 0.45, 0, height);
+        fog.addColorStop(0, "rgba(190, 215, 240, 0)");
+        fog.addColorStop(1, "rgba(190, 215, 240, 0.10)");
+        ctx.fillStyle = fog;
+        ctx.fillRect(0, height * 0.45, width, height * 0.55);
+
+        renderCliffWall();
+
+        const anchor = getAnchorScreenPos();
+        renderTopAnchor(anchor);
+
+        const climberPos = getClimberScreenPos();
+        renderClimberTelegraphRing(climberPos);
+
+        if (game.ropeHp > 0) {
+          renderDetailedRope();
+        }
+
+        renderClimberCharacter(climberPos);
+        renderParticlesAndPopups();
+        renderEventFX(climberPos);
+
+        if (game.tension > 45 || game.flashAlpha > 0.01) {
+          const dangerNorm = Math.max(0, (game.tension - 45) / 55);
+          const vigGrad = ctx.createRadialGradient(
+            width * 0.5,
+            height * 0.5,
+            width * 0.25,
+            width * 0.5,
+            height * 0.5,
+            width * 0.75
+          );
+          vigGrad.addColorStop(0, "rgba(0,0,0,0)");
+          vigGrad.addColorStop(
+            1,
+            `rgba(255, 55, 75, ${dangerNorm * 0.25 + game.flashAlpha * 0.45})`
+          );
+          ctx.fillStyle = vigGrad;
+          ctx.fillRect(0, 0, width, height);
+        }
+
+        ctx.restore();
+      }
+
+      function renderCliffWall() {
+        ctx.save();
+        ctx.beginPath();
+        const steps = 32;
+        const startX = getWallXAtY(0);
+        ctx.moveTo(startX, 0);
+        for (let i = 1; i <= steps; i++) {
+          const y = (i / steps) * height;
+          ctx.lineTo(getWallXAtY(y), y);
+        }
+        ctx.lineTo(width, height);
+        ctx.lineTo(width, 0);
+        ctx.closePath();
+
+        const rockGrad = ctx.createLinearGradient(width * 0.58, 0, width, 0);
+        rockGrad.addColorStop(0, "#1a2d42");
+        rockGrad.addColorStop(0.18, "#0f1c2b");
+        rockGrad.addColorStop(1, "#08101a");
+        ctx.fillStyle = rockGrad;
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(140, 205, 255, 0.35)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        cliffCracks.forEach((c) => {
+          const relAlt = (((c.altOffset - game.altitude * 1.15) % 110) + 110) % 110;
+          const y = (relAlt / 110) * height;
+          const wallX = getWallXAtY(y);
+
+          ctx.fillStyle = c.hasIce
+            ? "rgba(130, 205, 255, 0.16)"
+            : "rgba(255, 255, 255, 0.05)";
+          ctx.beginPath();
+          ctx.moveTo(wallX + c.indent, y);
+          ctx.lineTo(wallX + c.indent + c.ledgeWidth, y - 5);
+          ctx.lineTo(wallX + c.indent + c.ledgeWidth * 0.7, y + 10);
+          ctx.closePath();
+          ctx.fill();
+        });
+
+        ctx.restore();
+      }
+
+      function renderTopAnchor(anchor) {
+        ctx.save();
+        ctx.fillStyle = "#263f5c";
+        ctx.beginPath();
+        ctx.moveTo(anchor.x + 30, anchor.y - 18);
+        ctx.lineTo(anchor.x - 12, anchor.y - 6);
+        ctx.lineTo(anchor.x - 4, anchor.y + 12);
+        ctx.lineTo(anchor.x + 32, anchor.y + 16);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = "#9ec4e6";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(anchor.x, anchor.y, 7, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (game.tension > 82) {
+          const glow = (game.tension - 82) / 18;
+          ctx.fillStyle = `rgba(255, 80, 55, ${0.4 + Math.sin(game.overheatFlash) * 0.3})`;
+          ctx.beginPath();
+          ctx.arc(anchor.x - 2, anchor.y + 4, 10 + glow * 8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function tracePath(n, ox, oy) {
+        ctx.moveTo(n[0].x + ox, n[0].y + oy);
+        for (let i = 1; i < n.length - 1; i++) {
+          const mx = (n[i].x + n[i + 1].x) / 2 + ox;
+          const my = (n[i].y + n[i + 1].y) / 2 + oy;
+          ctx.quadraticCurveTo(n[i].x + ox, n[i].y + oy, mx, my);
+        }
+        const l = n[n.length - 1];
+        ctx.lineTo(l.x + ox, l.y + oy);
+      }
+
+      function renderDetailedRope() {
+        const nodes = game.ropeNodes;
+        if (nodes.length < 2) return;
+
+        ctx.save();
+        const tNorm = game.tension / 100;
+        const goldBounds = getGoldZoneBounds();
+        const inGold = game.tension >= goldBounds.min && game.tension <= goldBounds.max;
+
+        ctx.beginPath();
+        tracePath(nodes, 12, 8);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+        ctx.lineWidth = 7;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        ctx.beginPath();
+        tracePath(nodes, 0, 0);
+        ctx.strokeStyle = "#1a120b";
+        ctx.lineWidth = 9 - tNorm * 2.2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.stroke();
+
+        // Если взят перк «Синяя изолента бати» — верёвка обретает фирменный синий оттенок!
+        let ropeColor = game.kevlarStacks > 0 ? "#3b82f6" : "#d99b52";
+        if (game.tension >= 85) ropeColor = "#ff4455";
+        else if (inGold) ropeColor = "#ffd54a";
+        else if (game.tension >= 45) ropeColor = "#ffae3d";
+
+        ctx.strokeStyle = ropeColor;
+        ctx.lineWidth = 6.2 - tNorm * 1.6;
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(40, 22, 8, 0.55)";
+        ctx.lineWidth = 1.6;
+        for (let i = 0; i < nodes.length - 1; i++) {
+          const p1 = nodes[i];
+          const p2 = nodes[i + 1];
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const len = Math.hypot(dx, dy) || 1;
+          const nx = -dy / len;
+          const ny = dx / len;
+
+          for (let s = 0; s < 2; s++) {
+            const f = s / 2;
+            const cx = p1.x + dx * f;
+            const cy = p1.y + dy * f;
+            ctx.beginPath();
+            ctx.moveTo(cx - nx * 2.6, cy - ny * 2.6);
+            ctx.lineTo(cx + nx * 2.6 + dx * 0.25, cy + ny * 2.6 + dy * 0.25);
+            ctx.stroke();
+          }
+        }
+
+        ctx.restore();
+      }
+
+      function renderClimberTelegraphRing(pos) {
+        ctx.save();
+        if (game.climberState === "TELEGRAPH") {
+          const progress = 1 - game.stateTimer / game.stateDuration;
+          const radius = 48 - progress * 18;
+          ctx.strokeStyle = `rgba(255, 170, 51, ${0.35 + progress * 0.5})`;
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.arc(pos.x + 8, pos.y - 16, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (game.climberState === "BLUFF_WINDOW") {
+          const pulse = Math.sin(game.time * 28) * 3;
+          ctx.strokeStyle = "rgba(198, 138, 255, 0.95)";
+          ctx.lineWidth = 3.5;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.arc(pos.x + 8, pos.y - 16, 36 + pulse, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(198, 138, 255, 0.16)";
+          ctx.fill();
+        } else if (game.climberState === "VULNERABLE") {
+          const pulse = Math.sin(game.time * 22) * 3;
+          ctx.strokeStyle = "rgba(255, 62, 85, 0.94)";
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.arc(pos.x + 8, pos.y - 16, 33 + pulse, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255, 62, 85, 0.15)";
+          ctx.fill();
+        } else if (game.climberState === "BRACED") {
+          ctx.strokeStyle = ev.kanevsky
+            ? "rgba(255, 213, 74, 0.95)"
+            : "rgba(79, 209, 255, 0.75)";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(pos.x + 12, pos.y - 12, 30, -Math.PI * 0.45, Math.PI * 0.45);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function renderClimberCharacter(pos) {
+        const boss = getBoss();
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+
+        if (game.climberState === "FALLING") {
+          ctx.rotate(game.fallRot);
+        } else if (game.climberState === "STAGGERED") {
+          ctx.rotate(-0.38);
+        } else if (game.climberState === "VULNERABLE") {
+          ctx.rotate(-0.14 + Math.sin(game.flipAngle) * 0.35);
+        } else if (game.climberState === "BLUFF_WINDOW") {
+          ctx.rotate(0.18);
+        }
+
+        if (ev.lvl === 3) {
+          ctx.fillStyle = "rgba(255, 213, 74, 0.12)";
+          ctx.beginPath();
+          ctx.arc(0, -14, 34, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 1. Рюкзак
+        ctx.fillStyle = boss.packColor;
+        ctx.beginPath();
+        ctx.roundRect(-22, -24, 18, 28, 5);
+        ctx.fill();
+
+        if (ev.lvl === 2) {
+          ctx.strokeStyle = "#94a3b8";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-16, -24);
+          ctx.lineTo(-34, -46);
+          ctx.stroke();
+          ctx.fillStyle = Math.sin(game.time * 8) > 0 ? "#ff3e55" : "#475569";
+          ctx.beginPath();
+          ctx.arc(-35, -47, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 2. Ноги
+        const stepSin = Math.sin(game.limbPhase);
+        ctx.strokeStyle = boss.pantsColor;
+        ctx.lineWidth = 6.5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        ctx.beginPath();
+        ctx.moveTo(-2, 4);
+        ctx.lineTo(12, 14 + stepSin * 4);
+        ctx.lineTo(26, 26 + stepSin * 5);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(2, 4);
+        if (game.climberState === "STAGGERED" || game.climberState === "FALLING") {
+          ctx.lineTo(-10, 22);
+          ctx.lineTo(-16, 38);
+        } else {
+          ctx.lineTo(16, 8 - stepSin * 5);
+          ctx.lineTo(30, 18 - stepSin * 6);
+        }
+        ctx.stroke();
+
+        // 3. Торс
+        ctx.fillStyle = boss.jacketColor;
+        ctx.beginPath();
+        ctx.roundRect(-9, -25, ev.lvl === 3 ? 23 : 20, 32, 7);
+        ctx.fill();
+
+        ctx.strokeStyle = "#ffaa33";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-9, -2);
+        ctx.lineTo(12, -2);
+        ctx.stroke();
+
+        // 4. Голова
+        ctx.fillStyle = "#e6eef8";
+        ctx.beginPath();
+        ctx.arc(3, -34, 9.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (ev.lvl === 3) {
+          ctx.fillStyle = "#d5e3f2";
+          ctx.fillRect(0, -33, 13, 9);
+        }
+
+        ctx.fillStyle = boss.helmetColor;
+        ctx.beginPath();
+        ctx.arc(2, -36, 10, Math.PI * 0.95, Math.PI * 2.08);
+        ctx.fill();
+
+        ctx.fillStyle = ev.lvl === 2 ? "#ff4db8" : "#4fd1ff";
+        ctx.fillRect(5, -37, 7.5, 4.5);
+
+        // 5. Руки
+        ctx.strokeStyle = boss.jacketColor;
+        ctx.lineWidth = 5.5;
+        ctx.beginPath();
+        ctx.moveTo(6, -18);
+
+        if (game.climberState === "TELEGRAPH") {
+          ctx.lineTo(14, -36);
+          ctx.lineTo(24, -52);
+        } else if (game.climberState === "VULNERABLE") {
+          const wave = Math.sin(game.time * 24) * 5;
+          ctx.lineTo(2, -38);
+          ctx.lineTo(-6 + wave, -54);
+        } else if (game.climberState === "BLUFF_WINDOW") {
+          ctx.lineTo(-10, -26);
+          ctx.lineTo(-22, -30);
+        } else if (game.climberState === "STAGGERED" || game.climberState === "FALLING") {
+          ctx.lineTo(-14, -32);
+          ctx.lineTo(-28, -42);
+        } else {
+          ctx.lineTo(18, -24 + stepSin * 4);
+          ctx.lineTo(30, -30 + stepSin * 4);
+        }
+        ctx.stroke();
+
+        if (game.climberState === "BRACED") {
+          ctx.strokeStyle = ev.kanevsky ? "#ffd54a" : "#cbd5e1";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(26, -28);
+          ctx.lineTo(36, -42);
+          ctx.lineTo(45, -36);
+          ctx.stroke();
+        }
+
+        if (game.barkTimer > 0 && game.barkText) {
+          ctx.restore();
+          ctx.save();
+          const alpha = Math.min(1, game.barkTimer * 2);
+          ctx.font = "600 12px system-ui, sans-serif";
+          const textW = ctx.measureText(game.barkText).width;
+          const bx = Math.max(16, pos.x - textW - 26);
+          const by = pos.y - 68;
+
+          ctx.fillStyle = `rgba(10, 20, 34, ${0.88 * alpha})`;
+          ctx.strokeStyle = `rgba(148, 184, 218, ${0.38 * alpha})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(bx, by, textW + 20, 26, 6);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = `rgba(236, 243, 249, ${alpha})`;
+          ctx.fillText(game.barkText, bx + 10, by + 17);
+        }
+
+        ctx.restore();
+      }
+
+      function renderEventFX(p) {
+        ctx.save();
+        if (ev.mew === 1) {
+          const targetMewTime = game.counterMewPerk ? 0.74 : 1.05;
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y - 30, 48, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.strokeStyle = "#ffd54a";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(
+            p.x,
+            p.y - 30,
+            48,
+            -Math.PI / 2,
+            -Math.PI / 2 + Math.min(1, ev.mp / targetMewTime) * Math.PI * 2
+          );
+          ctx.stroke();
+
+          ctx.font = "34px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("🤫", p.x, p.y - 84);
+        }
+
+        if (ev.gaze > 0) {
+          const a = ev.gaze === 2 ? 0.14 : 0.06 + 0.05 * Math.sin(game.time * 18);
+          ctx.fillStyle = `rgba(80, 220, 255, ${a})`;
+          ctx.fillRect(0, 0, width, height);
+          ctx.strokeStyle = "#7fe3ff";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y - 30, 40, 0, Math.PI * 2);
+          ctx.stroke();
+          if (ev.gaze === 2) {
+            ctx.font = "42px system-ui, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("😎", p.x, p.y - 76);
+          }
+        }
+
+        if (ev.kanevsky) {
+          ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+          ctx.fillRect(0, 0, width, 22);
+          ctx.fillRect(0, height - 22, width, 22);
+        }
+        ctx.restore();
+      }
+
+      function renderParticlesAndPopups() {
+        ctx.save();
+        for (let i = 0; i < snowParticles.length; i++) {
+          const p = snowParticles[i];
+          ctx.fillStyle = `rgba(225, 240, 255, ${p.alpha})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        for (let i = 0; i < debrisParticles.length; i++) {
+          const d = debrisParticles[i];
+          const alpha = Math.max(0, d.life / d.maxLife);
+          ctx.fillStyle = d.color;
+          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        for (let i = 0; i < floatingPopups.length; i++) {
+          const f = floatingPopups[i];
+          const alpha = Math.min(1, (f.life / f.maxLife) * 1.4);
+          ctx.font = `800 ${Math.round(14 * f.scale)}px system-ui, sans-serif`;
+          ctx.fillStyle = f.color;
+          ctx.globalAlpha = alpha;
+          ctx.shadowColor = "rgba(0,0,0,0.85)";
+          ctx.shadowBlur = 6;
+          ctx.fillText(f.text, f.x, f.y);
+        }
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // 7. УПРАВЛЕНИЕ (КЛАВИАТУРА, МЫШЬ, ТАЧ-ЭКРАН)
+      // =========================================================================
+      function startHoldTension() {
+        sound.init();
+        if (game.mode !== "PLAYING") return;
+        game.isHolding = true;
+        game.isBleeding = false;
+        ui.btnHoldTension.classList.add("active");
+      }
+
+      function releaseHoldAndSnap() {
+        if (game.mode !== "PLAYING") return;
+        if (game.isHolding) {
+          executeSnap();
+        }
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.repeat) return;
+        const code = e.code;
+
+        if (code === "KeyP" || code === "Escape") {
+          togglePause();
+          return;
+        }
+        if (code === "KeyM") {
+          const muted = sound.toggleMute();
+          ui.btnMute.textContent = muted ? "🔇" : "🔊"; savedData.muted = muted; saveProgress();
+          return;
+        }
+        if (code === "KeyR") {
+          if (game.mode === "PLAYING" || game.mode === "PAUSED" || game.mode === "GAMEOVER") {
+            sound.init();
+            const isFullVictory = game.mode === "GAMEOVER" && game.climberState === "FALLING" && ev.lvl >= 3;
+            startStage(ev.lvl, isFullVictory, !isFullVictory);
+          }
+          return;
+        }
+
+        if (game.mode !== "PLAYING") return;
+
+        if (code === "Space" || code === "KeyW" || code === "ArrowUp") {
+          e.preventDefault();
+          startHoldTension();
+        } else if (code === "KeyE" || code === "Enter") {
+          e.preventDefault();
+          executeSnap();
+        } else if (code === "KeyS" || code === "ArrowDown") {
+          e.preventDefault();
+          game.isHolding = false;
+          game.isBleeding = true;
+          ui.btnHoldTension.classList.remove("active");
+        } else if (code === "KeyQ") {
+          e.preventDefault();
+          triggerAuraAvalanche();
+        }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        const code = e.code;
+        if (code === "Space" || code === "KeyW" || code === "ArrowUp") {
+          e.preventDefault();
+          releaseHoldAndSnap();
+        } else if (code === "KeyS" || code === "ArrowDown") {
+          game.isBleeding = false;
+        }
+      });
+
+      canvas.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0 && e.pointerType === "mouse") return;
+        startHoldTension();
+      });
+
+      window.addEventListener("pointerup", () => {
+        if (game.isHolding) {
+          releaseHoldAndSnap();
+        }
+        game.isBleeding = false;
+      });
+
+      ui.btnHoldTension.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        startHoldTension();
+      });
+      ui.btnSnapNow.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        sound.init();
+        executeSnap();
+      });
+      ui.btnBleedTension.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        game.isHolding = false;
+        game.isBleeding = true;
+        ui.btnHoldTension.classList.remove("active");
+      });
+      ui.btnAuraUlt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        sound.init();
+        triggerAuraAvalanche();
+      });
+
+      ui.btnStart.addEventListener("click", () => {
+        sound.init();
+        startStage(1, true);
+      });
+      ui.btnRetryCheckpoint.addEventListener("click", () => {
+        sound.init();
+        const isFullVictory = game.climberState === "FALLING" && ev.lvl >= 3;
+        startStage(ev.lvl, isFullVictory, !isFullVictory);
+      });
+      ui.btnRetryFull.addEventListener("click", () => {
+        sound.init();
+        startStage(1, true);
+      });
+      ui.btnRestartPause.addEventListener("click", () => {
+        sound.init();
+        startStage(ev.lvl, false, true);
+      });
+      ui.btnPause.addEventListener("click", () => togglePause());
+      ui.btnResume.addEventListener("click", () => togglePause());
+
+      ui.btnMute.addEventListener("click", () => {
+        sound.init();
+        const muted = sound.toggleMute();
+        ui.btnMute.textContent = muted ? "🔇" : "🔊"; savedData.muted = muted; saveProgress();
+      });
+
+      ui.volumeSlider.addEventListener("input", (e) => {
+        sound.init();
+        sound.setVolume(Number(e.target.value) / 100);
+        savedData.volume = sound.volume;
+        saveProgress();
+      });
+
+      ui.btnSkipTut.addEventListener("click", () => {
+        game.tutorialStep = 0;
+        savedData.tutorialDone = true;
+        saveProgress();
+        updateTutorialBanner();
+      });
+
+      ui.btnToggleTut.addEventListener("click", () => {
+        savedData.tutorialDone = false;
+        game.tutorialStep = 1;
+        saveProgress();
+        updateTutorialBanner();
+        togglePause();
+      });
+
+      function togglePause() {
+        if (game.mode === "PLAYING") {
+          game.mode = "PAUSED";
+          game.isHolding = false;
+          game.isBleeding = false;
+          ui.btnHoldTension.classList.remove("active");
+          ui.pauseScreen.classList.remove("hidden");
+        } else if (game.mode === "PAUSED") {
+          game.mode = "PLAYING";
+          ui.pauseScreen.classList.add("hidden");
+        }
+      }
+
+      window.addEventListener("blur", () => {
+        if (game.mode === "PLAYING") togglePause();
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && game.mode === "PLAYING") togglePause();
+      });
+
+      // =========================================================================
+      // 8. ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ (MAIN LOOP)
+      // =========================================================================
+      let lastTime = performance.now();
+
+      function frame(now) {
+        const rawDt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+
+        if (game.hitStop > 0) {
+          game.hitStop = Math.max(0, game.hitStop - rawDt);
+          renderScene();
+          requestAnimationFrame(frame);
+          return;
+        }
+
+        const dt = rawDt;
+        game.time += dt;
+
+        if (game.shakeTime > 0) {
+          game.shakeTime = Math.max(0, game.shakeTime - dt);
+          if (game.shakeTime === 0) game.shakePower = 0;
+        }
+        if (game.flashAlpha > 0) {
+          game.flashAlpha = Math.max(0, game.flashAlpha - dt * 1.6);
+        }
+
+        if (game.mode === "PLAYING") {
+          game.runTime += dt;
+          updateClimberAI(dt);
+          updateRopePhysics(dt);
+          syncHUD();
+        } else if (game.mode === "ENDING_ANIM") {
+          if (game.climberState === "FALLING") {
+            game.fallVy += 480 * dt;
+            game.fallY += game.fallVy * dt;
+            game.fallRot -= 2.6 * dt;
+          }
+          updateRopePhysics(dt);
+          game.stateTimer -= dt;
+          if (game.stateTimer <= 0) {
+            if (game.climberState === "FALLING" && ev.lvl < 3) {
+              openLevelTransitionModal();
+            } else {
+              showGameOverModal();
+            }
+          }
+        } else {
+          updateRopePhysics(dt);
+        }
+
+        updateParticles(dt);
+        sound.updateAmbient(game.altitude, game.tension, game.mode === "PLAYING");
+        renderScene();
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
